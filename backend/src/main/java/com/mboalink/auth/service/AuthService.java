@@ -67,6 +67,8 @@ public class AuthService {
         return AuthResponseDto.builder()
                 .utilisateurId(utilisateur.getId().toString())
                 .role(role.name())
+                .nom(utilisateur.getNom())
+                .prenom(utilisateur.getPrenom())
                 .email(utilisateur.getEmail())
                 .telephone(utilisateur.getTelephone())
                 .emailVerifie(false)

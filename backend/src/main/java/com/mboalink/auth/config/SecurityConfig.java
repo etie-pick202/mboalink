@@ -16,6 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.http.HttpMethod;
 
 import java.util.List;
 
@@ -49,9 +50,21 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        // Public — accessible à tous, même non connectés
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/search/**").permitAll()
+
+                        // Admin uniquement
                         .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
+
+                        // Grossiste + Admin — gestion de fiche
                         .requestMatchers("/api/v1/grossiste/**").hasAnyRole("GROSSISTE", "ADMIN")
+
+                        // Utilisateur connecté (UTILISATEUR, GROSSISTE, ADMIN) — paiements, favoris
+                        .requestMatchers("/api/v1/payment/**").hasAnyRole("UTILISATEUR", "GROSSISTE", "ADMIN")
+                        .requestMatchers("/api/v1/favoris/**").hasAnyRole("UTILISATEUR", "GROSSISTE", "ADMIN")
+
+                        // Tout le reste nécessite d'être connecté
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
