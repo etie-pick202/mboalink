@@ -53,6 +53,16 @@ public class AuthController {
         return ResponseEntity.ok(authService.rafraichirToken(req));
     }
 
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> deconnecter(
+            @Valid @RequestBody LogoutRequest req) {
+        authService.deconnecter(req);
+        return ResponseEntity.ok(Map.of(
+                "statut", "success",
+                "message", "Déconnexion réussie."
+        ));
+    }
+
     @PostMapping("/mot-de-passe-oublie")
     public ResponseEntity<Map<String, String>> motDePasseOublie(
             @Valid @RequestBody MotDePasseOublieRequest req) {

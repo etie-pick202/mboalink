@@ -137,6 +137,16 @@ public class AuthService {
     }
 
     @Transactional
+    public void deconnecter(LogoutRequest req) {
+        RefreshToken rt = refreshTokenRepo.findByToken(req.getRefreshToken())
+                .orElseThrow(() -> new AuthException("Refresh token invalide."));
+
+        rt.setRevoque(true);
+        refreshTokenRepo.save(rt);
+        log.info("[AUTH] Déconnexion : {}", rt.getUtilisateur().getId());
+    }
+
+    @Transactional
     public void demanderReinitialisationMotDePasse(MotDePasseOublieRequest req) {
         Utilisateur utilisateur = trouverParIdentifiant(req.getIdentifiant());
         String cible = req.getIdentifiant().contains("@")

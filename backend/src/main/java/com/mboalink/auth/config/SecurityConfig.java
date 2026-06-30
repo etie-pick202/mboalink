@@ -39,7 +39,8 @@ public class SecurityConfig {
             "/api/v1/auth/mot-de-passe-oublie",
             "/api/v1/auth/reinitialiser-mot-de-passe",
             "/api/v1/auth/refresh",
-            "/actuator/health"
+            "/actuator/health",
+            "/api/v1/auth/logout"
     };
 
     @Bean
