@@ -102,7 +102,7 @@ public class AuthService {
         Utilisateur utilisateur = trouverParIdentifiant(req.getIdentifiant());
 
         if (!utilisateur.getEstActif()) {
-            throw new AuthException("Ce compte a été suspendu. Contactez le support.");
+            throw new AuthException("Ce compte a été supprimé ou suspendu. Contactez le support.");
         }
         if (utilisateur.getMotDePasseHash() == null ||
                 !passwordEncoder.matches(req.getMotDePasse(), utilisateur.getMotDePasseHash())) {
@@ -144,6 +144,26 @@ public class AuthService {
         rt.setRevoque(true);
         refreshTokenRepo.save(rt);
         log.info("[AUTH] Déconnexion : {}", rt.getUtilisateur().getId());
+    }
+
+    @Transactional
+    public void supprimerCompte(UUID utilisateurId, SupprimerCompteRequest req) {
+        Utilisateur u = utilisateurRepo.findById(utilisateurId)
+                .orElseThrow(() -> new AuthException("Utilisateur introuvable."));
+
+        if (u.getMotDePasseHash() == null ||
+                !passwordEncoder.matches(req.getMotDePasse(), u.getMotDePasseHash())) {
+            throw new AuthException("Mot de passe incorrect.");
+        }
+
+        u.setEstActif(false);
+        u.setSupprimeLe(LocalDateTime.now());
+        utilisateurRepo.save(u);
+
+        // Révoquer tous les tokens actifs
+        refreshTokenRepo.revoquerTous(u);
+
+        log.info("[AUTH] Compte désactivé (soft delete) : {}", utilisateurId);
     }
 
     @Transactional
