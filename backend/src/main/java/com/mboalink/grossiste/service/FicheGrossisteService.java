@@ -48,6 +48,7 @@ public class FicheGrossisteService {
                 .emailProfessionnel(req.getEmailProfessionnel())
                 .siteWeb(req.getSiteWeb())
                 .logoUrl(req.getLogoUrl())
+                .anneeCreation(req.getAnneeCreation())
                 .statutVerification("EN_ATTENTE")
                 .build();
 
@@ -97,6 +98,7 @@ public class FicheGrossisteService {
         fiche.setEmailProfessionnel(req.getEmailProfessionnel());
         fiche.setSiteWeb(req.getSiteWeb());
         fiche.setLogoUrl(req.getLogoUrl());
+        fiche.setAnneeCreation(req.getAnneeCreation());
 
         // 4. Sauvegarder (Hibernate détecte que la fiche existe déjà et fait un UPDATE)
         FicheGrossiste miseAJour = ficheRepository.save(fiche);

@@ -18,4 +18,5 @@ public class CreerFicheRequest {
     private String emailProfessionnel;
     private String siteWeb;
     private String logoUrl;
+    private Integer anneeCreation;
 }

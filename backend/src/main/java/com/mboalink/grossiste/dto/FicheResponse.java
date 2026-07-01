@@ -23,6 +23,7 @@ public class FicheResponse {
     private String statutVerification;
     private Double noteMoyenne;
     private Integer nombreAvis;
+    private Integer anneeCreation;
 
     // La liste des produits de la fiche (peut être vide)
     private List<ProduitResponse> produits;
@@ -43,6 +44,7 @@ public class FicheResponse {
                 .statutVerification(f.getStatutVerification())
                 .noteMoyenne(f.getNoteMoyenne())
                 .nombreAvis(f.getNombreAvis())
+                .anneeCreation(f.getAnneeCreation())
                 .build();
     }
 
