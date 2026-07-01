@@ -3,6 +3,7 @@ import "package:go_router/go_router.dart";
 import "../constants/app_routes.dart";
 import "../widgets/placeholder_screen.dart";
 import "../../features/auth/presentation/screens/splash_screen.dart";
+import "../../features/auth/presentation/screens/onboarding_screen.dart";
 
 /// Router racine. Les routes se remplissent au fur et à mesure des
 /// workflows ; les écrans pas encore développés utilisent [PlaceholderScreen].
@@ -15,8 +16,7 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.onboarding,
-      builder: (context, state) =>
-          const PlaceholderScreen(title: "02 · Onboarding"),
+      builder: (context, state) => const OnboardingScreen(),
     ),
     GoRoute(
       path: AppRoutes.login,
