@@ -22,4 +22,5 @@ public class GrossisteSearchResultDto {
     private Double noteMoyenne;
     private Integer nombreAvis;
     private Boolean certifie;
+    private Double distanceKm;
 }

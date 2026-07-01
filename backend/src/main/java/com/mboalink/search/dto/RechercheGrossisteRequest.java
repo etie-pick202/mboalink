@@ -24,7 +24,11 @@ public class RechercheGrossisteRequest {
 
     private Boolean certifie;
 
-    /** NOTE_DESC | NOTE_ASC | NOM_ASC | NOM_DESC */
+    private Double latitudeUtilisateur;
+
+    private Double longitudeUtilisateur;
+
+    /** NOTE_DESC | NOTE_ASC | NOM_ASC | NOM_DESC | CERTIFICATION | PROXIMITE */
     private String tri = "NOTE_DESC";
 
     @Min(0)
