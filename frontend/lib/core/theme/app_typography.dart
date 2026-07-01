@@ -1,12 +1,11 @@
-﻿import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'app_colors.dart';
+﻿import "package:flutter/material.dart";
+import "package:google_fonts/google_fonts.dart";
+import "app_colors.dart";
 
 /// Typographie MboaLink : Space Grotesk pour les titres, Manrope pour le corps.
 class AppTypography {
   AppTypography._();
 
-  // Titres — Space Grotesk (poids 500 à 700 sur la maquette)
   static TextStyle get displayLarge => GoogleFonts.spaceGrotesk(
         fontSize: 32,
         fontWeight: FontWeight.w700,
@@ -32,7 +31,6 @@ class AppTypography {
         color: AppColors.textPrimary,
       );
 
-  // Corps de texte — Manrope (poids 400 à 800 sur la maquette)
   static TextStyle get bodyLarge => GoogleFonts.manrope(
         fontSize: 14,
         fontWeight: FontWeight.w500,
@@ -68,5 +66,12 @@ class AppTypography {
         fontWeight: FontWeight.w700,
         letterSpacing: 0.4,
         color: AppColors.textSecondary,
+      );
+
+  /// Libellé au-dessus des champs de formulaire (ex: "Téléphone · Phone").
+  static TextStyle get fieldLabel => GoogleFonts.manrope(
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textMuted,
       );
 }
