@@ -1,4 +1,4 @@
-﻿/// Point de bascule unique entre données mock et vrai backend.
+/// Point de bascule unique entre données mock et vrai backend.
 ///
 /// Usage :
 ///   flutter run                                → mock (par défaut)
@@ -6,8 +6,10 @@
 class AppConfig {
   AppConfig._();
 
-  static const bool useMockData =
-      bool.fromEnvironment('USE_MOCK', defaultValue: true);
+  static const bool useMockData = bool.fromEnvironment(
+    'USE_MOCK',
+    defaultValue: true,
+  );
 
   /// 10.0.2.2 = alias de "localhost" de la machine hôte depuis l'émulateur Android.
   static const String apiBaseUrl = String.fromEnvironment(

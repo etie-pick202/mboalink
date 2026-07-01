@@ -1,11 +1,13 @@
-﻿import "package:flutter_test/flutter_test.dart";
+import "package:flutter_test/flutter_test.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 
 import "package:mboalink/app.dart";
 import "package:mboalink/features/auth/presentation/screens/splash_screen.dart";
 
 void main() {
-  testWidgets("Splash screen shows then navigates to onboarding", (WidgetTester tester) async {
+  testWidgets("Splash screen shows then navigates to onboarding", (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(const ProviderScope(child: MboaLinkApp()));
 
     expect(find.byType(SplashScreen), findsOneWidget);

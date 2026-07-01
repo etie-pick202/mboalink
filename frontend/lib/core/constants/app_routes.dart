@@ -1,4 +1,4 @@
-﻿/// Chemins de navigation centralisés. Un seul endroit à modifier
+/// Chemins de navigation centralisés. Un seul endroit à modifier
 /// si une route change de nom.
 class AppRoutes {
   AppRoutes._();

@@ -1,4 +1,4 @@
-﻿import "dart:async";
+import "dart:async";
 
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
@@ -50,7 +50,9 @@ class _SplashScreenState extends State<SplashScreen> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: isTablet ? 480 : double.infinity),
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? 480 : double.infinity,
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Column(
@@ -72,7 +74,10 @@ class _SplashScreenState extends State<SplashScreen> {
                               ),
                               children: const [
                                 TextSpan(text: "MboaLink"),
-                                TextSpan(text: ".", style: TextStyle(color: AppColors.accent)),
+                                TextSpan(
+                                  text: ".",
+                                  style: TextStyle(color: AppColors.accent),
+                                ),
                               ],
                             ),
                             textAlign: TextAlign.center,

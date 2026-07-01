@@ -1,4 +1,4 @@
-﻿import "package:go_router/go_router.dart";
+import "package:go_router/go_router.dart";
 
 import "../constants/app_routes.dart";
 import "../widgets/placeholder_screen.dart";
