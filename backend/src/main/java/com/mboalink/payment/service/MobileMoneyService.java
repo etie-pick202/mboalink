@@ -6,7 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -101,7 +103,8 @@ public class MobileMoneyService {
             HttpHeaders headers = createMTNHeaders(referenceId);
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            var response = restTemplate.getForObject(mtnEndpoint, Map.class, entity);
+            ResponseEntity<Map> httpResponse = restTemplate.exchange(mtnEndpoint, HttpMethod.GET, entity, Map.class);
+            Map response = httpResponse.getBody();
             log.info("MTN status response: {}", response);
 
             String status = (String) response.get("status");
@@ -174,7 +177,8 @@ public class MobileMoneyService {
             HttpHeaders headers = createOrangeHeaders();
             HttpEntity<String> entity = new HttpEntity<>(headers);
 
-            var response = restTemplate.getForObject(orangeEndpoint, Map.class, entity);
+            ResponseEntity<Map> httpResponse = restTemplate.exchange(orangeEndpoint, HttpMethod.GET, entity, Map.class);
+            Map response = httpResponse.getBody();
             log.info("Orange status response: {}", response);
 
             String status = (String) response.get("status");

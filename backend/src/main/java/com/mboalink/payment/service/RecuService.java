@@ -4,6 +4,7 @@ import com.mboalink.payment.dto.RecuResponseDTO;
 import com.mboalink.payment.entity.Recu;
 import com.mboalink.payment.entity.Transaction;
 import com.mboalink.payment.repository.RecuRepository;
+import com.mboalink.payment.repository.TransactionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.util.stream.Collectors;
 public class RecuService {
 
     private final RecuRepository recuRepository;
+    private final TransactionRepository transactionRepository;
 
     /**
      * Generate receipt after successful payment
@@ -68,8 +70,12 @@ public class RecuService {
      * Get receipt by transaction
      */
     public RecuResponseDTO getReceiptByTransaction(UUID transactionId) {
-        Recu recu = recuRepository.findByTransaction(new Transaction())
+        Transaction transaction = transactionRepository.findById(transactionId)
+                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+
+        Recu recu = recuRepository.findByTransaction(transaction)
                 .orElseThrow(() -> new RuntimeException("Reçu not found for transaction"));
+
         return mapToResponseDTO(recu);
     }
 
