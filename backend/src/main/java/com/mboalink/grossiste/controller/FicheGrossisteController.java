@@ -38,4 +38,13 @@ public class FicheGrossisteController {
     public ResponseEntity<FicheResponse> consulterFiche(@PathVariable UUID ficheId) {
         return ResponseEntity.ok(ficheService.consulterFiche(ficheId));
     }
+    // PUT /api/v1/grossistes/{ficheId}  → modifier sa fiche
+    @PutMapping("/{ficheId}")
+    public ResponseEntity<FicheResponse> modifierFiche(
+            @PathVariable UUID ficheId,
+            @Valid @RequestBody CreerFicheRequest req) {
+        FicheResponse reponse = ficheService.modifierFiche(
+                CurrentUser.getId(), ficheId, req);
+        return ResponseEntity.ok(reponse);
+    }
 }

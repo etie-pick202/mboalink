@@ -74,4 +74,34 @@ public class FicheGrossisteService {
 
         return FicheResponse.avecProduits(fiche, produits);
     }
+    // Modifier sa propre fiche
+    public FicheResponse modifierFiche(UUID utilisateurId, UUID ficheId, CreerFicheRequest req) {
+
+        // 1. Récupérer la fiche existante
+        FicheGrossiste fiche = ficheRepository.findById(ficheId)
+                .orElseThrow(() -> new IllegalStateException("Fiche introuvable."));
+
+        // 2. Sécurité : vérifier que la fiche appartient à l'utilisateur connecté
+        if (!fiche.getUtilisateur().getId().equals(utilisateurId)) {
+            throw new IllegalStateException("Vous ne pouvez modifier que votre propre fiche.");
+        }
+
+        // 3. Mettre à jour les champs
+        fiche.setNomEntreprise(req.getNomEntreprise());
+        fiche.setDescription(req.getDescription());
+        fiche.setSecteurActivite(req.getSecteurActivite());
+        fiche.setVille(req.getVille());
+        fiche.setQuartier(req.getQuartier());
+        fiche.setAdresseComplete(req.getAdresseComplete());
+        fiche.setTelephoneProfessionnel(req.getTelephoneProfessionnel());
+        fiche.setEmailProfessionnel(req.getEmailProfessionnel());
+        fiche.setSiteWeb(req.getSiteWeb());
+        fiche.setLogoUrl(req.getLogoUrl());
+
+        // 4. Sauvegarder (Hibernate détecte que la fiche existe déjà et fait un UPDATE)
+        FicheGrossiste miseAJour = ficheRepository.save(fiche);
+
+        // 5. Renvoyer la réponse
+        return FicheResponse.depuis(miseAJour);
+    }
 }
