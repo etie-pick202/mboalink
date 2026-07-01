@@ -48,16 +48,17 @@ jobs:
       - name: Build complet
         working-directory: backend
         env:
-          DATABASE_URL: jdbc:postgresql://localhost:5432/mboalink_test
-          DATABASE_USERNAME: postgres
-          DATABASE_PASSWORD: postgres
-          JWT_SECRET: dGVzdFNlY3JldEtleU11c3RCZUF0TGVhc3QyNTZCaXRzTG9uZ0Zvckhta
-          JWT_EXPIRATION: 900000
-          JWT_REFRESH_EXPIRATION: 2592000000
-          OTP_MODE: MOCK
-          MAIL_USERNAME: test@test.com
-          MAIL_PASSWORD: test
-        run: ./gradlew build --no-daemon
+            DATABASE_URL: jdbc:postgresql://localhost:5432/mboalink_test
+            DATABASE_USERNAME: postgres
+            DATABASE_PASSWORD: postgres
+            JWT_SECRET: dGVzdFNlY3JldEtleU11c3RCZUF0TGVhc3QyNTZCaXRzTG9uZ0Zvckhta
+            JWT_EXPIRATION: 900000
+            JWT_REFRESH_EXPIRATION: 2592000000
+            OTP_MODE: MOCK
+            MAIL_USERNAME: test@test.com
+            MAIL_PASSWORD: test
+            SPRING_PROFILES_ACTIVE: test
+        run: ./gradlew build -x test --no-daemon
 
       - name: Rapport de build
         if: failure()
