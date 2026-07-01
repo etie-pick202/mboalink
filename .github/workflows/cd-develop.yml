@@ -1,0 +1,67 @@
+# ============================================================
+# CD Develop — Vérification complète sur PR vers develop
+# ============================================================
+name: CD Develop
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'backend/**'
+
+jobs:
+  verify:
+    name: Vérification complète
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: mboalink_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission to gradlew
+        working-directory: backend
+        run: chmod +x gradlew
+
+      - name: Build complet
+        working-directory: backend
+        env:
+          DATABASE_URL: jdbc:postgresql://localhost:5432/mboalink_test
+          DATABASE_USERNAME: postgres
+          DATABASE_PASSWORD: postgres
+          JWT_SECRET: dGVzdFNlY3JldEtleU11c3RCZUF0TGVhc3QyNTZCaXRzTG9uZ0Zvckhta
+          JWT_EXPIRATION: 900000
+          JWT_REFRESH_EXPIRATION: 2592000000
+          OTP_MODE: MOCK
+          MAIL_USERNAME: test@test.com
+          MAIL_PASSWORD: test
+        run: ./gradlew build --no-daemon
+
+      - name: Rapport de build
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-report
+          path: backend/build/reports/
