@@ -2,6 +2,7 @@ package com.mboalink.grossiste.service;
 
 import com.mboalink.auth.entity.Utilisateur;
 import com.mboalink.auth.repository.UtilisateurRepository;
+import com.mboalink.auth.security.CurrentUser;
 import com.mboalink.grossiste.dto.CreerFicheRequest;
 import com.mboalink.grossiste.dto.FicheResponse;
 import com.mboalink.grossiste.entity.FicheGrossiste;
@@ -25,6 +26,11 @@ public class FicheGrossisteService {
 
     // Créer une fiche grossiste
     public FicheResponse creerFiche(UUID utilisateurId, CreerFicheRequest req) {
+
+        // 0. Vérifier que l'utilisateur est bien un GROSSISTE
+        if (!"ROLE_GROSSISTE".equals(CurrentUser.getRole())) {
+            throw new IllegalStateException("Seuls les grossistes peuvent créer une fiche.");
+        }
 
         // 1. Vérifier que l'utilisateur n'a pas déjà une fiche
         if (ficheRepository.existsByUtilisateurId(utilisateurId)) {

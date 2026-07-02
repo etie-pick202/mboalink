@@ -2,6 +2,7 @@ package com.mboalink.grossiste.service;
 
 import com.mboalink.auth.entity.Utilisateur;
 import com.mboalink.auth.repository.UtilisateurRepository;
+import com.mboalink.auth.security.CurrentUser;
 import com.mboalink.grossiste.dto.CoordonneesResponse;
 import com.mboalink.grossiste.dto.DeverrouillerRequest;
 import com.mboalink.grossiste.entity.DeverrouillageCoordonnees;
@@ -23,6 +24,11 @@ public class DeverrouillageService {
 
     // Déverrouiller les coordonnées d'une fiche (après paiement)
     public CoordonneesResponse deverrouiller(UUID utilisateurId, UUID ficheId, DeverrouillerRequest req) {
+
+        // 0. Vérifier que c'est bien un REVENDEUR (UTILISATEUR) qui déverrouille
+        if (!"ROLE_UTILISATEUR".equals(CurrentUser.getRole())) {
+            throw new IllegalStateException("Seuls les revendeurs peuvent déverrouiller les coordonnées.");
+        }
 
         // 1. Récupérer la fiche
         FicheGrossiste fiche = ficheRepository.findById(ficheId)
