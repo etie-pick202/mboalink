@@ -43,11 +43,11 @@ public class NotationController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             // Get wholesaler
             FicheGrossiste ficheGrossiste = ficheGrossisteRepository.findById(request.getFicheGrossisteId())
-                    .orElseThrow(() -> new RuntimeException("Wholesaler not found"));
+                    .orElseThrow(() -> new RuntimeException("Grossiste non trouvé"));
 
             // Create rating
             NotationResponseDTO response = notationService.createRating(utilisateur, ficheGrossiste, request);
@@ -78,7 +78,7 @@ public class NotationController {
 
         try {
             FicheGrossiste ficheGrossiste = ficheGrossisteRepository.findById(ficheGrossisteId)
-                    .orElseThrow(() -> new RuntimeException("Wholesaler not found"));
+                    .orElseThrow(() -> new RuntimeException("Grossiste non trouvé"));
 
             List<NotationResponseDTO> ratings = notationService.getRatingsForGrossiste(ficheGrossiste);
             Double averageRating = notationService.getAverageRatingForGrossiste(ficheGrossiste);
@@ -93,7 +93,7 @@ public class NotationController {
             log.error("Erreur récupération notations: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "Wholesaler not found"
+                    "message", "Grossiste non trouvé"
             ));
         }
     }
@@ -109,7 +109,7 @@ public class NotationController {
 
         try {
             FicheGrossiste ficheGrossiste = ficheGrossisteRepository.findById(ficheGrossisteId)
-                    .orElseThrow(() -> new RuntimeException("Wholesaler not found"));
+                    .orElseThrow(() -> new RuntimeException("Grossiste non trouvé"));
 
             List<NotationResponseDTO> ratings = notationService.getVerifiedRatingsForGrossiste(ficheGrossiste);
 
@@ -122,7 +122,7 @@ public class NotationController {
             log.error("Erreur récupération notations vérifiées: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "Wholesaler not found"
+                    "message", "Grossiste non trouvé"
             ));
         }
     }
@@ -138,7 +138,7 @@ public class NotationController {
 
         try {
             FicheGrossiste ficheGrossiste = ficheGrossisteRepository.findById(ficheGrossisteId)
-                    .orElseThrow(() -> new RuntimeException("Wholesaler not found"));
+                    .orElseThrow(() -> new RuntimeException("Grossiste non trouvé"));
 
             var breakdown = notationService.getRatingBreakdown(ficheGrossiste);
 
@@ -150,7 +150,7 @@ public class NotationController {
             log.error("Erreur récupération breakdown: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "Wholesaler not found"
+                    "message", "Grossiste non trouvé"
             ));
         }
     }
@@ -169,13 +169,13 @@ public class NotationController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             notationService.flagRating(notationId);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Rating flagged for moderation"
+                    "message", "Note signalée pour modération"
             ));
         } catch (Exception e) {
             log.error("Erreur signalement notation: ", e);
@@ -206,7 +206,7 @@ public class NotationController {
             log.error("Erreur récupération notations signalées: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Error fetching flagged ratings"
+                    "message", "Erreur lors de la récupération des notes signalées"
             ));
         }
     }
@@ -226,7 +226,7 @@ public class NotationController {
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Rating moderated successfully"
+                    "message", "Note modérée avec succès"
             ));
         } catch (Exception e) {
             log.error("Erreur modération notation: ", e);
@@ -250,13 +250,13 @@ public class NotationController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             notationService.deleteRating(notationId);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Rating deleted successfully"
+                    "message", "Note supprimée avec succès"
             ));
         } catch (Exception e) {
             log.error("Erreur suppression notation: ", e);

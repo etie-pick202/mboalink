@@ -49,7 +49,7 @@ public class TransactionController {
             // Get authenticated user
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             // Create transaction
             TransactionResponseDTO response = transactionService.createTransaction(utilisateur, request);
@@ -90,7 +90,7 @@ public class TransactionController {
             log.error("Erreur récupération transaction: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "Transaction not found"
+                    "message", "Transaction non trouvée"
             ));
         }
     }
@@ -106,7 +106,7 @@ public class TransactionController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
             List<TransactionResponseDTO> responses = transactionService.getUserTransactions(utilisateur);
 
             return ResponseEntity.ok(Map.of(
@@ -118,7 +118,7 @@ public class TransactionController {
             log.error("Erreur récupération historique: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Error fetching transaction history"
+                    "message", "Erreur lors de la récupération de l'historique des transactions"
             ));
         }
     }
@@ -134,7 +134,7 @@ public class TransactionController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
             List<TransactionResponseDTO> responses = transactionService.getSuccessfulTransactions(utilisateur);
 
             return ResponseEntity.ok(Map.of(
@@ -146,7 +146,7 @@ public class TransactionController {
             log.error("Erreur récupération transactions réussies: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Error fetching successful transactions"
+                    "message", "Erreur lors de la récupération des transactions réussies"
             ));
         }
     }
@@ -166,7 +166,7 @@ public class TransactionController {
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Payment confirmed"
+                    "message", "Paiement confirmé"
             ));
         } catch (Exception e) {
             log.error("Erreur confirmation paiement: ", e);

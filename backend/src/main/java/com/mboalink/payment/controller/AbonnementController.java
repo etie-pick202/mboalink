@@ -43,17 +43,17 @@ public class AbonnementController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             // Get transaction
             Transaction transaction = transactionRepository.findById(transactionId)
-                    .orElseThrow(() -> new RuntimeException("Transaction not found"));
+                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
 
             // Verify transaction is successful
             if (!"SUCCES".equals(transaction.getStatut())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                         "success", false,
-                        "message", "Transaction must be successful to create subscription"
+                        "message", "La transaction doit être réussie pour créer un abonnement"
                 ));
             }
 
@@ -86,7 +86,7 @@ public class AbonnementController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
             AbonnementResponseDTO response = abonnementService.getSubscription(utilisateur);
 
             return ResponseEntity.ok(Map.of(
@@ -97,7 +97,7 @@ public class AbonnementController {
             log.error("Erreur récupération abonnement: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "No active subscription found"
+                    "message", "Aucun abonnement actif trouvé"
             ));
         }
     }
@@ -115,17 +115,17 @@ public class AbonnementController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             // Get transaction
             Transaction transaction = transactionRepository.findById(transactionId)
-                    .orElseThrow(() -> new RuntimeException("Transaction not found"));
+                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
 
             // Verify transaction is successful
             if (!"SUCCES".equals(transaction.getStatut())) {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                         "success", false,
-                        "message", "Transaction must be successful to renew subscription"
+                        "message", "La transaction doit être réussie pour renouveler l'abonnement"
                 ));
             }
 
@@ -158,7 +158,7 @@ public class AbonnementController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
             abonnementService.suspendSubscription(utilisateur);
 
             return ResponseEntity.ok(Map.of(
@@ -194,7 +194,7 @@ public class AbonnementController {
             log.error("Erreur récupération abonnements expirant: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Error fetching expiring subscriptions"
+                    "message", "Erreur lors de la récupération des abonnements expirant"
             ));
         }
     }

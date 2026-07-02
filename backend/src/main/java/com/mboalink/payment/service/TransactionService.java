@@ -68,7 +68,7 @@ public class TransactionService {
         log.info("Confirmation paiement: {}", referenceExterne);
 
         Transaction transaction = transactionRepository.findByReferenceExterne(referenceExterne)
-                .orElseThrow(() -> new RuntimeException("Transaction not found: " + referenceExterne));
+                .orElseThrow(() -> new RuntimeException("Transaction non trouvée: " + referenceExterne));
 
         transaction.setStatut(newStatut); // SUCCES ou ECHEC
         transaction.setTraiteLe(LocalDateTime.now());
@@ -82,7 +82,7 @@ public class TransactionService {
      */
     public TransactionResponseDTO getTransaction(UUID transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
-                .orElseThrow(() -> new RuntimeException("Transaction not found"));
+                .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
         return mapToResponseDTO(transaction);
     }
 

@@ -49,7 +49,7 @@ public class RecuController {
             log.error("Erreur récupération reçu: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "Receipt not found"
+                    "message", "Reçu non trouvé"
             ));
         }
     }
@@ -75,7 +75,7 @@ public class RecuController {
             log.error("Erreur récupération reçu: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
-                    "message", "Receipt not found"
+                    "message", "Reçu non trouvé"
             ));
         }
     }
@@ -108,7 +108,7 @@ public class RecuController {
             log.error("Erreur récupération reçus par mois: ", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "success", false,
-                    "message", "Invalid month format (use YYYY-MM)"
+                    "message", "Format de mois invalide (utiliser YYYY-MM)"
             ));
         }
     }
@@ -126,7 +126,7 @@ public class RecuController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             // Validate limit
             if (limit < 1 || limit > 100) {
@@ -144,7 +144,7 @@ public class RecuController {
             log.error("Erreur récupération reçus récents: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Error fetching recent receipts"
+                    "message", "Erreur lors de la récupération des reçus récents"
             ));
         }
     }
@@ -162,19 +162,19 @@ public class RecuController {
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
             // TODO: Implement PDF download
             // For now, return placeholder
             return ResponseEntity.ok(Map.of(
                     "success", false,
-                    "message", "PDF generation in progress"
+                    "message", "Génération du PDF en cours"
             ));
         } catch (Exception e) {
             log.error("Erreur téléchargement PDF: ", e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
                     "success", false,
-                    "message", "Receipt PDF not available"
+                    "message", "PDF du reçu non disponible"
             ));
         }
     }
@@ -193,14 +193,14 @@ public class RecuController {
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("count", receipts.size());
-            result.put("message", receipts.size() + " receipts need PDF generation");
+            result.put("message", receipts.size() + " reçus nécessitent une génération de PDF");
 
             return ResponseEntity.ok(result);
         } catch (Exception e) {
             log.error("Erreur récupération reçus sans PDF: ", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
-                    "message", "Error fetching receipts"
+                    "message", "Erreur lors de la récupération des reçus"
             ));
         }
     }
@@ -220,7 +220,7 @@ public class RecuController {
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Receipt PDF URL updated"
+                    "message", "URL du PDF du reçu mise à jour"
             ));
         } catch (Exception e) {
             log.error("Erreur mise à jour URL PDF: ", e);
