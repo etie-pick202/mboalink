@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mboalink.auth.entity.Utilisateur;
 import com.mboalink.grossiste.entity.FicheGrossiste;
+import com.mboalink.grossiste.repository.FicheGrossisteRepository;
 import com.mboalink.payment.dto.NotationRequestDTO;
 import com.mboalink.payment.dto.NotationResponseDTO;
 import com.mboalink.payment.entity.Notation;
@@ -28,6 +29,7 @@ public class NotationService {
 
     private final NotationRepository notationRepository;
     private final TransactionRepository transactionRepository;
+    private final FicheGrossisteRepository ficheGrossisteRepository;
 
     /**
      * Create a new rating (only if user has verified transaction)
@@ -64,7 +66,25 @@ public class NotationService {
         Notation saved = notationRepository.save(notation);
         log.info("Notation créée: {} | Note: {}", saved.getId(), request.getNote());
 
+        // Update note_moyenne and nombre_avis in fiches_grossistes
+        updateFicheGrossisteStats(ficheGrossiste);
+
         return mapToResponseDTO(saved);
+    }
+
+    /**
+     * Update note_moyenne and nombre_avis in fiches_grossistes
+     */
+    private void updateFicheGrossisteStats(FicheGrossiste ficheGrossiste) {
+        long nombreAvis = notationRepository.countRatingsByGrossiste(ficheGrossiste);
+        Double noteMoyenne = notationRepository.findAverageRatingByGrossiste(ficheGrossiste).orElse(0.0);
+
+        ficheGrossiste.setNombreAvis((int) nombreAvis);
+        ficheGrossiste.setNoteMoyenne(noteMoyenne);
+        ficheGrossisteRepository.save(ficheGrossiste);
+
+        log.info("[NOTATION] FicheGrossiste {} mise à jour → note_moyenne: {} | nombre_avis: {}",
+                ficheGrossiste.getId(), noteMoyenne, nombreAvis);
     }
 
     /**
@@ -164,14 +184,14 @@ public class NotationService {
                 .ficheGrossisteName(notation.getFicheGrossiste().getNomEntreprise())
                 .utilisateurId(notation.getUtilisateur().getId())
                 .utilisateurNom(notation.getUtilisateur().getNom() + " " + notation.getUtilisateur().getPrenom())
-                .utilisateurAvatar(null) // No avatar field in Utilisateur yet
+                .utilisateurAvatar(null)
                 .note(notation.getNote())
                 .commentaire(notation.getCommentaire())
                 .transactionVerifiee(notation.getTransactionVerifiee())
                 .statut(notation.getStatut())
                 .creeLe(notation.getCreeLe())
                 .misAJourLe(notation.getMisAJourLe())
-                .peutEditer(false) // Will be set based on user context
+                .peutEditer(false)
                 .build();
     }
 
