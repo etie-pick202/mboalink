@@ -1,6 +1,7 @@
 package com.mboalink.payment.service;
 
 import com.mboalink.auth.entity.Utilisateur;
+import com.mboalink.payment.dto.MobileMoneyRequestDTO;
 import com.mboalink.payment.dto.TransactionRequestDTO;
 import com.mboalink.payment.dto.TransactionResponseDTO;
 import com.mboalink.payment.entity.Transaction;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -22,35 +24,53 @@ import java.util.stream.Collectors;
 public class TransactionService {
 
     private final TransactionRepository transactionRepository;
+    private final CampayPaymentService campayPaymentService;
 
     /**
-     * Create a transaction
+     * Créer une transaction et initier le paiement via Campay
      */
-    public TransactionResponseDTO createTransaction(Utilisateur utilisateur, TransactionRequestDTO request) {
-        log.info("[TRANSACTION] Création transaction pour utilisateur: {} | Type: {}", 
-            utilisateur.getId(), request.getTypeTransaction());
+    public Map<String, Object> createTransaction(Utilisateur utilisateur, TransactionRequestDTO request) {
+        log.info("[TRANSACTION] Création transaction pour utilisateur: {} | Type: {}",
+                utilisateur.getId(), request.getTypeTransaction());
 
         Transaction transaction = Transaction.builder()
                 .utilisateur(utilisateur)
                 .typeTransaction(request.getTypeTransaction())
                 .montant(request.getMontant())
-                .devise(request.getDevise())
+                .devise(request.getDevise() != null ? request.getDevise() : "XAF")
                 .operateur(request.getOperateur())
                 .numeroTelephonePaiement(request.getNumeroTelephonePaiement())
-                .referenceExterne(request.getReferenceExterne())
+                .referenceExterne(null)
                 .statut("EN_ATTENTE")
                 .description(request.getDescription())
                 .creeLe(LocalDateTime.now())
                 .build();
 
         Transaction saved = transactionRepository.save(transaction);
-        log.info("[TRANSACTION] Transaction créée: {}", saved.getId());
 
-        return mapToResponseDTO(saved);
+        // Build DTO for Campay
+        MobileMoneyRequestDTO mobileMoneyRequest = MobileMoneyRequestDTO.builder()
+                .montant(request.getMontant())
+                .operateur(request.getOperateur())
+                .numeroTelephonePaiement(request.getNumeroTelephonePaiement())
+                .typeTransaction(request.getTypeTransaction())
+                .devise(request.getDevise() != null ? request.getDevise() : "XAF")
+                .description(request.getDescription())
+                .build();
+
+        // Initiate payment via Campay
+        Map<String, Object> campayResult = campayPaymentService.initiatePayment(saved, mobileMoneyRequest);
+
+        // Reload updated transaction after Campay call
+        Transaction updatedTransaction = transactionRepository.findById(saved.getId()).orElse(saved);
+
+        Map<String, Object> finalResult = new java.util.HashMap<>(campayResult);
+        finalResult.put("transaction", mapToResponseDTO(updatedTransaction));
+        return finalResult;
     }
 
     /**
-     * Confirm payment success
+     * Confirmer un paiement (appelé par webhook Campay)
      */
     public void confirmPayment(String referenceExterne, String newStatut) {
         log.info("[TRANSACTION] Confirmation paiement: {}", referenceExterne);
@@ -66,7 +86,15 @@ public class TransactionService {
     }
 
     /**
-     * Get transaction by ID
+     * Vérifier le statut d'un paiement Campay
+     */
+    public Map<String, Object> checkPaymentStatus(String reference) {
+        log.info("[TRANSACTION] Vérification statut paiement: {}", reference);
+        return campayPaymentService.checkPaymentStatus(reference);
+    }
+
+    /**
+     * Récupérer une transaction par ID
      */
     public TransactionResponseDTO getTransaction(UUID transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
@@ -75,7 +103,7 @@ public class TransactionService {
     }
 
     /**
-     * Get all transactions for a user
+     * Récupérer toutes les transactions d'un utilisateur
      */
     public List<TransactionResponseDTO> getUserTransactions(Utilisateur utilisateur) {
         return transactionRepository.findByUtilisateur(utilisateur).stream()
@@ -84,7 +112,7 @@ public class TransactionService {
     }
 
     /**
-     * Get successful transactions only
+     * Récupérer les transactions réussies d'un utilisateur
      */
     public List<TransactionResponseDTO> getSuccessfulTransactions(Utilisateur utilisateur) {
         return transactionRepository.findSuccessfulTransactionsByUser(utilisateur).stream()
@@ -93,18 +121,26 @@ public class TransactionService {
     }
 
     /**
-     * Retry pending transactions (scheduled job)
+     * Retry des transactions en attente (scheduled job)
      */
     public void retryPendingTransactions() {
-        log.info("[TRANSACTION] Retry pending transactions...");
+        log.info("[TRANSACTION] Retry transactions en attente...");
         LocalDateTime cutoffTime = LocalDateTime.now().minusMinutes(15);
         List<Transaction> pendingTransactions = transactionRepository.findPendingTransactionsForRetry(cutoffTime);
 
-        log.info("[TRANSACTION] Found {} pending transactions to retry", pendingTransactions.size());
+        for (Transaction tx : pendingTransactions) {
+            try {
+                if (tx.getReferenceExterne() != null) {
+                    campayPaymentService.checkPaymentStatus(tx.getReferenceExterne());
+                }
+            } catch (Exception e) {
+                log.error("[TRANSACTION] Erreur retry transaction {}: ", tx.getId(), e);
+            }
+        }
     }
 
     /**
-     * Map Entity to DTO
+     * Map Entity → DTO
      */
     private TransactionResponseDTO mapToResponseDTO(Transaction transaction) {
         String messageStatut = switch (transaction.getStatut()) {

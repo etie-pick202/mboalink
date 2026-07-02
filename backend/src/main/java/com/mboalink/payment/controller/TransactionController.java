@@ -29,27 +29,26 @@ public class TransactionController {
     private final UtilisateurRepository utilisateurRepository;
 
     /**
-     * Créer une nouvelle transaction
+     * Créer une nouvelle transaction et initier paiement Campay
      */
     @PostMapping
     public ResponseEntity<?> createTransaction(
             @Valid @RequestBody TransactionRequestDTO request,
             Authentication authentication) {
-        log.info("[TRANSACTION] Création transaction - Type: {}, Montant: {}", 
-            request.getTypeTransaction(), request.getMontant());
+        log.info("[TRANSACTION] Création transaction - Type: {}, Montant: {}",
+                request.getTypeTransaction(), request.getMontant());
 
         try {
             String userId = authentication.getName();
             Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
                     .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
 
-            TransactionResponseDTO transactionResponse = transactionService.createTransaction(utilisateur, request);
+            Map<String, Object> result = transactionService.createTransaction(utilisateur, request);
 
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                    "success", true,
-                    "message", "Transaction créée avec succès",
-                    "data", transactionResponse
-            ));
+            boolean success = (Boolean) result.getOrDefault("success", false);
+            return success
+                    ? ResponseEntity.status(HttpStatus.CREATED).body(result)
+                    : ResponseEntity.status(HttpStatus.BAD_REQUEST).body(result);
 
         } catch (Exception e) {
             log.error("[TRANSACTION] Erreur création transaction: ", e);
@@ -119,6 +118,53 @@ public class TransactionController {
     }
 
     /**
+     * Vérifier le statut d'une transaction Campay
+     */
+    @GetMapping("/{transactionId}/status")
+    public ResponseEntity<?> checkTransactionStatus(
+            @PathVariable UUID transactionId,
+            Authentication authentication) {
+        log.info("[TRANSACTION] Vérification statut transaction: {}", transactionId);
+
+        try {
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+            Transaction transaction = transactionRepository.findById(transactionId)
+                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
+
+            if (!transaction.getUtilisateur().getId().equals(utilisateur.getId())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "success", false,
+                        "message", "Accès non autorisé"
+                ));
+            }
+
+            // Use Campay reference to check status
+            if (transaction.getReferenceExterne() == null) {
+                return ResponseEntity.ok(Map.of(
+                        "success", false,
+                        "message", "Aucune référence de paiement trouvée",
+                        "statut", transaction.getStatut()
+                ));
+            }
+
+            Map<String, Object> statusResult = transactionService.checkPaymentStatus(
+                    transaction.getReferenceExterne());
+
+            return ResponseEntity.ok(statusResult);
+
+        } catch (Exception e) {
+            log.error("[TRANSACTION] Erreur vérification statut: ", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "success", false,
+                    "message", "Erreur vérification statut"
+            ));
+        }
+    }
+
+    /**
      * Récupérer une transaction par ID
      */
     @GetMapping("/{transactionId}")
@@ -135,7 +181,6 @@ public class TransactionController {
             Transaction transaction = transactionRepository.findById(transactionId)
                     .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
 
-            // Verify ownership
             if (!transaction.getUtilisateur().getId().equals(utilisateur.getId())) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
                         "success", false,
@@ -153,50 +198,6 @@ public class TransactionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                     "success", false,
                     "message", "Erreur récupération transaction"
-            ));
-        }
-    }
-
-    /**
-     * Confirmer une transaction après paiement réussi
-     */
-    @PostMapping("/{transactionId}/confirm")
-    public ResponseEntity<?> confirmTransaction(
-            @PathVariable UUID transactionId,
-            Authentication authentication) {
-        log.info("[TRANSACTION] Confirmation transaction: {}", transactionId);
-
-        try {
-            String userId = authentication.getName();
-            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
-                    .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-
-            Transaction transaction = transactionRepository.findById(transactionId)
-                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
-
-            if (!transaction.getUtilisateur().getId().equals(utilisateur.getId())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
-                        "success", false,
-                        "message", "Accès non autorisé"
-                ));
-            }
-
-            transactionService.confirmPayment(transaction.getReferenceExterne(), "SUCCES");
-
-            Transaction updatedTransaction = transactionRepository.findById(transactionId)
-                    .orElseThrow(() -> new RuntimeException("Transaction non trouvée"));
-
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "Transaction confirmée",
-                    "data", transactionService.getTransaction(updatedTransaction.getId())
-            ));
-
-        } catch (Exception e) {
-            log.error("[TRANSACTION] Erreur confirmation: ", e);
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                    "success", false,
-                    "message", "Erreur confirmation transaction"
             ));
         }
     }
