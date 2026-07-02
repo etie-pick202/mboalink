@@ -15,12 +15,12 @@ import "../../../../core/widgets/app_text_field.dart";
 import "../../../../core/widgets/primary_button.dart";
 import "../../domain/entities/registration_draft.dart";
 import "../providers/auth_providers.dart";
-import "../widgets/identifier_field.dart";
+import "../widgets/phone_field.dart";
 import "../widgets/segmented_tabs.dart";
 
-/// Écran 03 · Connexion / Inscription — conforme à la maquette MboaLink.
-/// Le choix du type de compte (revue de changement) se fait sur l'écran
-/// suivant : cet écran ne fait que collecter et valider les identifiants.
+/// Écran 03 · Connexion / Inscription — conforme au style de la maquette
+/// MboaLink. L'email est l'identifiant unique de connexion ; le téléphone
+/// n'est collecté qu'à l'inscription, en tant que donnée facultative.
 class LoginRegisterScreen extends ConsumerStatefulWidget {
   const LoginRegisterScreen({super.key});
 
@@ -35,30 +35,26 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
   String? _errorMessage;
 
   final _loginFormKey = GlobalKey<FormState>();
-  final _loginIdentifier = TextEditingController();
+  final _loginEmail = TextEditingController();
   final _loginPassword = TextEditingController();
 
   final _registerFormKey = GlobalKey<FormState>();
   final _registerNom = TextEditingController();
   final _registerPrenom = TextEditingController();
-  final _registerIdentifier = TextEditingController();
+  final _registerEmail = TextEditingController();
+  final _registerPhone = TextEditingController();
   final _registerPassword = TextEditingController();
 
   @override
   void dispose() {
-    _loginIdentifier.dispose();
+    _loginEmail.dispose();
     _loginPassword.dispose();
     _registerNom.dispose();
     _registerPrenom.dispose();
-    _registerIdentifier.dispose();
+    _registerEmail.dispose();
+    _registerPhone.dispose();
     _registerPassword.dispose();
     super.dispose();
-  }
-
-  String _normalizedIdentifier(String raw) {
-    final value = raw.trim();
-    if (value.contains("@")) return value;
-    return PhoneFormatter.toE164Cameroon(value);
   }
 
   Future<void> _submitLogin() async {
@@ -72,7 +68,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
       await ref
           .read(authRepositoryProvider)
           .connecter(
-            identifiant: _normalizedIdentifier(_loginIdentifier.text),
+            identifiant: _loginEmail.text.trim(),
             motDePasse: _loginPassword.text,
           );
       if (!mounted) return;
@@ -87,17 +83,16 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
   void _submitRegister() {
     if (!_registerFormKey.currentState!.validate()) return;
 
-    final rawIdentifier = _registerIdentifier.text.trim();
-    final isEmail = rawIdentifier.contains("@");
+    final phoneRaw = _registerPhone.text.trim();
 
     final draft = RegistrationDraft(
       nom: _registerNom.text.trim(),
       prenom: _registerPrenom.text.trim(),
-      identifiant: isEmail
-          ? rawIdentifier
-          : PhoneFormatter.toE164Cameroon(rawIdentifier),
+      email: _registerEmail.text.trim(),
+      telephone: phoneRaw.isEmpty
+          ? null
+          : PhoneFormatter.toE164Cameroon(phoneRaw),
       motDePasse: _registerPassword.text,
-      isEmail: isEmail,
     );
 
     context.push(AppRoutes.accountTypeChoice, extra: draft);
@@ -197,7 +192,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                   _activeTab == 0
                       ? _LoginForm(
                           formKey: _loginFormKey,
-                          identifierController: _loginIdentifier,
+                          emailController: _loginEmail,
                           passwordController: _loginPassword,
                           isSubmitting: _isSubmitting,
                           onSubmit: _submitLogin,
@@ -208,7 +203,8 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                           formKey: _registerFormKey,
                           nomController: _registerNom,
                           prenomController: _registerPrenom,
-                          identifierController: _registerIdentifier,
+                          emailController: _registerEmail,
+                          phoneController: _registerPhone,
                           passwordController: _registerPassword,
                           onSubmit: _submitRegister,
                         ),
@@ -258,7 +254,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
 class _LoginForm extends StatelessWidget {
   const _LoginForm({
     required this.formKey,
-    required this.identifierController,
+    required this.emailController,
     required this.passwordController,
     required this.isSubmitting,
     required this.onSubmit,
@@ -266,7 +262,7 @@ class _LoginForm extends StatelessWidget {
   });
 
   final GlobalKey<FormState> formKey;
-  final TextEditingController identifierController;
+  final TextEditingController emailController;
   final TextEditingController passwordController;
   final bool isSubmitting;
   final VoidCallback onSubmit;
@@ -279,9 +275,11 @@ class _LoginForm extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IdentifierField(
-            controller: identifierController,
-            validator: Validators.identifier,
+          AppTextField(
+            label: "Email",
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            validator: Validators.email,
           ),
           const SizedBox(height: 14),
           AppTextField(
@@ -327,7 +325,8 @@ class _RegisterForm extends StatelessWidget {
     required this.formKey,
     required this.nomController,
     required this.prenomController,
-    required this.identifierController,
+    required this.emailController,
+    required this.phoneController,
     required this.passwordController,
     required this.onSubmit,
   });
@@ -335,7 +334,8 @@ class _RegisterForm extends StatelessWidget {
   final GlobalKey<FormState> formKey;
   final TextEditingController nomController;
   final TextEditingController prenomController;
-  final TextEditingController identifierController;
+  final TextEditingController emailController;
+  final TextEditingController phoneController;
   final TextEditingController passwordController;
   final VoidCallback onSubmit;
 
@@ -372,9 +372,16 @@ class _RegisterForm extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          IdentifierField(
-            controller: identifierController,
-            validator: Validators.identifier,
+          AppTextField(
+            label: "Email",
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            validator: Validators.email,
+          ),
+          const SizedBox(height: 14),
+          PhoneField(
+            controller: phoneController,
+            validator: Validators.phoneOptional,
           ),
           const SizedBox(height: 14),
           AppTextField(

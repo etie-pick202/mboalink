@@ -5,14 +5,14 @@ class RegistrationDraft {
   const RegistrationDraft({
     required this.nom,
     required this.prenom,
-    required this.identifiant,
+    required this.email,
     required this.motDePasse,
-    required this.isEmail,
+    this.telephone,
   });
 
   final String nom;
   final String prenom;
-  final String identifiant;
+  final String email;
   final String motDePasse;
-  final bool isEmail;
+  final String? telephone;
 }
