@@ -118,7 +118,7 @@ public class NotationService {
     public void flagRating(UUID ratingId) {
         log.warn("Notation signalée: {}", ratingId);
         Notation notation = notationRepository.findById(ratingId)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
+                .orElseThrow(() -> new RuntimeException("Note non trouvée"));
 
         notation.setStatut("SIGNALE");
         notationRepository.save(notation);
@@ -139,7 +139,7 @@ public class NotationService {
     public void moderateRating(UUID ratingId, String newStatut) {
         log.info("Modération notation: {} | Nouveau statut: {}", ratingId, newStatut);
         Notation notation = notationRepository.findById(ratingId)
-                .orElseThrow(() -> new RuntimeException("Rating not found"));
+                .orElseThrow(() -> new RuntimeException("Note non trouvée"));
 
         notation.setStatut(newStatut); // VISIBLE | MASQUE
         notation.setMisAJourLe(java.time.LocalDateTime.now());
