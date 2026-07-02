@@ -1,0 +1,41 @@
+# ============================================================
+# Render — Configuration déploiement MboaLink
+# ============================================================
+
+services:
+  - type: web
+    name: mboalink-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free
+    region: frankfurt
+    branch: main
+    healthCheckPath: /actuator/health
+    envVars:
+      - key: DATABASE_URL
+        value: jdbc:postgresql://dpg-d936b64vikkc73bl7n90-a/mboalink
+      - key: DATABASE_USERNAME
+        value: mboalink_user
+      - key: DATABASE_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_EXPIRATION
+        value: 900000
+      - key: JWT_REFRESH_EXPIRATION
+        value: 2592000000
+      - key: OTP_MODE
+        value: EMAIL
+      - key: OTP_EXPIRATION_MINUTES
+        value: 10
+      - key: MAIL_USERNAME
+        sync: false
+      - key: MAIL_PASSWORD
+        sync: false
+      - key: MAIL_FROM
+        value: noreply@mboalink.cm
+      - key: FRONTEND_URL
+        value: "*"
+      - key: PORT
+        value: 8080
