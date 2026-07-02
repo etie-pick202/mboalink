@@ -39,6 +39,8 @@ jobs:
         working-directory: backend
         run: chmod +x gradlew
 
+
+
       - name: Build sans tests
         working-directory: backend
         env:
@@ -64,3 +66,21 @@ jobs:
           OTP_MODE: MOCK
           MAIL_USERNAME: test@test.com
           MAIL_PASSWORD: test
+
+      - name: Checkstyle — vérification du style de code
+        working-directory: backend
+        env:
+            JWT_SECRET: dGVzdFNlY3JldEtleU11c3RCZUF0TGVhc3QyNTZCaXRzTG9uZ0Zvckhta
+            JWT_EXPIRATION: 900000
+            JWT_REFRESH_EXPIRATION: 2592000000
+            OTP_MODE: MOCK
+            MAIL_USERNAME: test@test.com
+            MAIL_PASSWORD: test
+        run: ./gradlew checkstyleMain --no-daemon
+
+      - name: Upload rapport Checkstyle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+                name: checkstyle-report
+                path: backend/build/reports/checkstyle/
