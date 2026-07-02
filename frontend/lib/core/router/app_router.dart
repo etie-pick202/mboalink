@@ -2,9 +2,11 @@ import "package:go_router/go_router.dart";
 
 import "../constants/app_routes.dart";
 import "../widgets/placeholder_screen.dart";
+import "../../features/auth/domain/entities/registration_draft.dart";
 import "../../features/auth/presentation/screens/splash_screen.dart";
 import "../../features/auth/presentation/screens/onboarding_screen.dart";
 import "../../features/auth/presentation/screens/login_register_screen.dart";
+import "../../features/auth/presentation/screens/account_type_choice_screen.dart";
 
 /// Router racine. Les routes se remplissent au fur et à mesure des
 /// workflows ; les écrans pas encore développés utilisent PlaceholderScreen.
@@ -26,7 +28,7 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.accountTypeChoice,
       builder: (context, state) =>
-          const PlaceholderScreen(title: "Choix du type de compte"),
+          AccountTypeChoiceScreen(draft: state.extra as RegistrationDraft),
     ),
     GoRoute(
       path: AppRoutes.otp,
