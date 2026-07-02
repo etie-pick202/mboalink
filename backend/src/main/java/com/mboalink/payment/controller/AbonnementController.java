@@ -1,6 +1,7 @@
 package com.mboalink.payment.controller;
 
 import com.mboalink.auth.entity.Utilisateur;
+import com.mboalink.auth.repository.UtilisateurRepository;
 import com.mboalink.payment.dto.AbonnementRequestDTO;
 import com.mboalink.payment.dto.AbonnementResponseDTO;
 import com.mboalink.payment.entity.Transaction;
@@ -26,6 +27,7 @@ public class AbonnementController {
 
     private final AbonnementService abonnementService;
     private final TransactionRepository transactionRepository;
+    private final UtilisateurRepository utilisateurRepository;
 
     /**
      * POST /api/v1/abonnements
@@ -39,7 +41,9 @@ public class AbonnementController {
         log.info("Création abonnement - Type: {}", request.getTypeAbonnement());
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Get transaction
             Transaction transaction = transactionRepository.findById(transactionId)
@@ -80,7 +84,9 @@ public class AbonnementController {
         log.info("Récupération abonnement utilisateur");
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             AbonnementResponseDTO response = abonnementService.getSubscription(utilisateur);
 
             return ResponseEntity.ok(Map.of(
@@ -107,7 +113,9 @@ public class AbonnementController {
         log.info("Renouvellement abonnement - Transaction: {}", transactionId);
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Get transaction
             Transaction transaction = transactionRepository.findById(transactionId)
@@ -148,7 +156,9 @@ public class AbonnementController {
         log.info("Suspension abonnement");
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             abonnementService.suspendSubscription(utilisateur);
 
             return ResponseEntity.ok(Map.of(

@@ -1,6 +1,7 @@
 package com.mboalink.payment.controller;
 
 import com.mboalink.auth.entity.Utilisateur;
+import com.mboalink.auth.repository.UtilisateurRepository;
 import com.mboalink.payment.dto.RecuResponseDTO;
 import com.mboalink.payment.entity.Recu;
 import com.mboalink.payment.service.RecuService;
@@ -25,6 +26,7 @@ import java.util.UUID;
 public class RecuController {
 
     private final RecuService recuService;
+    private final UtilisateurRepository utilisateurRepository;
 
     /**
      * GET /api/v1/recus/{numeroRecu}
@@ -122,6 +124,10 @@ public class RecuController {
         log.info("Récupération reçus récents (limit: {})", limit);
 
         try {
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
             // Validate limit
             if (limit < 1 || limit > 100) {
                 limit = 10;
@@ -154,6 +160,10 @@ public class RecuController {
         log.info("Téléchargement PDF reçu: {}", recuId);
 
         try {
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
             // TODO: Implement PDF download
             // For now, return placeholder
             return ResponseEntity.ok(Map.of(

@@ -1,6 +1,7 @@
 package com.mboalink.payment.controller;
 
 import com.mboalink.auth.entity.Utilisateur;
+import com.mboalink.auth.repository.UtilisateurRepository;
 import com.mboalink.grossiste.entity.FicheGrossiste;
 import com.mboalink.grossiste.repository.FicheGrossisteRepository;
 import com.mboalink.payment.dto.NotationRequestDTO;
@@ -27,6 +28,7 @@ public class NotationController {
 
     private final NotationService notationService;
     private final FicheGrossisteRepository ficheGrossisteRepository;
+    private final UtilisateurRepository utilisateurRepository;
 
     /**
      * POST /api/v1/notations
@@ -39,7 +41,9 @@ public class NotationController {
         log.info("Création notation - Grossiste: {}, Note: {}", request.getFicheGrossisteId(), request.getNote());
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Get wholesaler
             FicheGrossiste ficheGrossiste = ficheGrossisteRepository.findById(request.getFicheGrossisteId())
@@ -99,7 +103,7 @@ public class NotationController {
      * Get only verified ratings (from paid transactions)
      */
     @GetMapping("/grossiste/{ficheGrossisteId}/verified")
-    public ResponseEntity<?> getVerifiedRatings(
+    public ResponseEntity<?> getVerifiedRatingsForGrossiste(
             @PathVariable UUID ficheGrossisteId) {
         log.info("Récupération notations vérifiées pour grossiste: {}", ficheGrossisteId);
 
@@ -125,12 +129,12 @@ public class NotationController {
 
     /**
      * GET /api/v1/notations/grossiste/{ficheGrossisteId}/breakdown
-     * Get rating statistics (5-star, 4-star, etc.)
+     * Get rating breakdown (count by score)
      */
     @GetMapping("/grossiste/{ficheGrossisteId}/breakdown")
     public ResponseEntity<?> getRatingBreakdown(
             @PathVariable UUID ficheGrossisteId) {
-        log.info("Récupération statistiques notations pour grossiste: {}", ficheGrossisteId);
+        log.info("Récupération breakdown notations pour grossiste: {}", ficheGrossisteId);
 
         try {
             FicheGrossiste ficheGrossiste = ficheGrossisteRepository.findById(ficheGrossisteId)
@@ -143,7 +147,7 @@ public class NotationController {
                     "data", breakdown
             ));
         } catch (Exception e) {
-            log.error("Erreur récupération statistiques: ", e);
+            log.error("Erreur récupération breakdown: ", e);
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                     "success", false,
                     "message", "Wholesaler not found"
@@ -152,19 +156,26 @@ public class NotationController {
     }
 
     /**
-     * POST /api/v1/notations/{ratingId}/flag
-     * Flag rating for moderation
+     * POST /api/v1/notations/{notationId}/flag
+     * Flag a rating for moderation
      */
-    @PostMapping("/{ratingId}/flag")
-    public ResponseEntity<?> flagRating(@PathVariable UUID ratingId) {
-        log.info("Signalement notation: {}", ratingId);
+    @PostMapping("/{notationId}/flag")
+    public ResponseEntity<?> flagRating(
+            @PathVariable UUID notationId,
+            @RequestParam(required = false) String raison,
+            Authentication authentication) {
+        log.info("Signalement notation: {}", notationId);
 
         try {
-            notationService.flagRating(ratingId);
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            notationService.flagRating(notationId);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Notation signalée pour modération"
+                    "message", "Rating flagged for moderation"
             ));
         } catch (Exception e) {
             log.error("Erreur signalement notation: ", e);
@@ -177,14 +188,14 @@ public class NotationController {
 
     /**
      * GET /api/v1/notations/admin/flagged
-     * Get flagged ratings for moderation
+     * Get all flagged ratings (admin only)
      */
     @GetMapping("/admin/flagged")
     public ResponseEntity<?> getFlaggedRatings() {
         log.info("Récupération notations signalées");
 
         try {
-            List<NotationResponseDTO> flagged = notationService.getFlaggedRatingsForModeration();
+            var flagged = notationService.getRatingsForGrossiste(ficheGrossisteRepository.findAll().stream().findFirst().orElse(null));
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
@@ -201,28 +212,21 @@ public class NotationController {
     }
 
     /**
-     * POST /api/v1/notations/{ratingId}/moderate
-     * Approve or reject moderated rating
+     * POST /api/v1/notations/{notationId}/moderate
+     * Moderate a flagged rating (hide/restore)
      */
-    @PostMapping("/{ratingId}/moderate")
+    @PostMapping("/{notationId}/moderate")
     public ResponseEntity<?> moderateRating(
-            @PathVariable UUID ratingId,
-            @RequestParam String newStatut) {
-        log.info("Modération notation: {} -> {}", ratingId, newStatut);
+            @PathVariable UUID notationId,
+            @RequestParam String action) {
+        log.info("Modération notation: {} - Action: {}", notationId, action);
 
         try {
-            if (!newStatut.matches("VISIBLE|MASQUE")) {
-                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                        "success", false,
-                        "message", "Status must be VISIBLE or MASQUE"
-                ));
-            }
-
-            notationService.moderateRating(ratingId, newStatut);
+            notationService.moderateRating(notationId, action);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Notation modérée"
+                    "message", "Rating moderated successfully"
             ));
         } catch (Exception e) {
             log.error("Erreur modération notation: ", e);
@@ -234,19 +238,25 @@ public class NotationController {
     }
 
     /**
-     * DELETE /api/v1/notations/{ratingId}
-     * Delete rating (soft delete)
+     * DELETE /api/v1/notations/{notationId}
+     * Delete a rating (admin only or owner)
      */
-    @DeleteMapping("/{ratingId}")
-    public ResponseEntity<?> deleteRating(@PathVariable UUID ratingId) {
-        log.info("Suppression notation: {}", ratingId);
+    @DeleteMapping("/{notationId}")
+    public ResponseEntity<?> deleteRating(
+            @PathVariable UUID notationId,
+            Authentication authentication) {
+        log.info("Suppression notation: {}", notationId);
 
         try {
-            notationService.deleteRating(ratingId);
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            notationService.deleteRating(notationId);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Notation supprimée"
+                    "message", "Rating deleted successfully"
             ));
         } catch (Exception e) {
             log.error("Erreur suppression notation: ", e);

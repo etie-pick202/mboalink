@@ -1,21 +1,30 @@
 package com.mboalink.payment.controller;
 
-import com.mboalink.auth.entity.Utilisateur;
-import com.mboalink.payment.dto.TransactionRequestDTO;
-import com.mboalink.payment.dto.TransactionResponseDTO;
-import com.mboalink.payment.service.TransactionService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.web.bind.annotation.*;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import com.mboalink.auth.entity.Utilisateur;
+import com.mboalink.auth.repository.UtilisateurRepository;
+import com.mboalink.payment.dto.TransactionRequestDTO;
+import com.mboalink.payment.dto.TransactionResponseDTO;
+import com.mboalink.payment.service.TransactionService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @RestController
 @RequestMapping("/api/v1/transactions")
@@ -24,7 +33,8 @@ import java.util.UUID;
 public class TransactionController {
 
     private final TransactionService transactionService;
-
+    private final UtilisateurRepository utilisateurRepository;
+    
     /**
      * POST /api/v1/transactions
      * Initiate a new payment transaction
@@ -37,7 +47,9 @@ public class TransactionController {
 
         try {
             // Get authenticated user
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
             // Create transaction
             TransactionResponseDTO response = transactionService.createTransaction(utilisateur, request);
@@ -92,7 +104,9 @@ public class TransactionController {
         log.info("Récupération historique transactions utilisateur");
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             List<TransactionResponseDTO> responses = transactionService.getUserTransactions(utilisateur);
 
             return ResponseEntity.ok(Map.of(
@@ -118,7 +132,9 @@ public class TransactionController {
         log.info("Récupération transactions réussies");
 
         try {
-            Utilisateur utilisateur = (Utilisateur) authentication.getPrincipal();
+            String userId = authentication.getName();
+            Utilisateur utilisateur = utilisateurRepository.findById(UUID.fromString(userId))
+                    .orElseThrow(() -> new RuntimeException("User not found"));
             List<TransactionResponseDTO> responses = transactionService.getSuccessfulTransactions(utilisateur);
 
             return ResponseEntity.ok(Map.of(
