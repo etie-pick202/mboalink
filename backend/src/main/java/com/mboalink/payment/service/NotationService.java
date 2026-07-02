@@ -10,9 +10,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mboalink.auth.entity.Utilisateur;
 import com.mboalink.grossiste.entity.FicheGrossiste;
+import com.mboalink.grossiste.repository.FicheGrossisteRepository;
 import com.mboalink.payment.dto.NotationRequestDTO;
 import com.mboalink.payment.dto.NotationResponseDTO;
-import com.mboalink.grossiste.repository.FicheGrossisteRepository;
 import com.mboalink.payment.entity.Notation;
 import com.mboalink.payment.entity.Transaction;
 import com.mboalink.payment.repository.NotationRepository;
@@ -188,14 +188,14 @@ public class NotationService {
                 .ficheGrossisteName(notation.getFicheGrossiste().getNomEntreprise())
                 .utilisateurId(notation.getUtilisateur().getId())
                 .utilisateurNom(notation.getUtilisateur().getNom() + " " + notation.getUtilisateur().getPrenom())
-                .utilisateurAvatar(null) // No avatar field in Utilisateur yet
+                .utilisateurAvatar(null)
                 .note(notation.getNote())
                 .commentaire(notation.getCommentaire())
                 .transactionVerifiee(notation.getTransactionVerifiee())
                 .statut(notation.getStatut())
                 .creeLe(notation.getCreeLe())
                 .misAJourLe(notation.getMisAJourLe())
-                .peutEditer(false) // Will be set based on user context
+                .peutEditer(false)
                 .build();
     }
 
