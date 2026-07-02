@@ -24,6 +24,7 @@ public class CampayPaymentService {
 
     private final TransactionRepository transactionRepository;
     private final RestTemplate restTemplate;
+    private final RecuService recuService;
 
     @Value("${campay.base.url}")
     private String campayBaseUrl;
@@ -125,6 +126,12 @@ public class CampayPaymentService {
                     transaction.setStatut(mappedStatus);
                     transaction.setTraiteLe(LocalDateTime.now());
                     transactionRepository.save(transaction);
+
+                    // Generate receipt if payment successful
+                    if ("SUCCES".equals(mappedStatus)) {
+                        recuService.generateReceipt(transaction);
+                        log.info("[CAMPAY] Reçu généré pour transaction: {}", transaction.getId());
+                    }
                 });
 
                 return Map.of(
@@ -167,6 +174,12 @@ public class CampayPaymentService {
                 transaction.setTraiteLe(LocalDateTime.now());
                 transactionRepository.save(transaction);
                 log.info("[CAMPAY] Webhook: Transaction {} mise à jour → {}", transaction.getId(), mappedStatus);
+
+                // Generate receipt if payment successful
+                if ("SUCCES".equals(mappedStatus)) {
+                    recuService.generateReceipt(transaction);
+                    log.info("[CAMPAY] Reçu généré automatiquement pour transaction: {}", transaction.getId());
+                }
             });
 
             return Map.of(
@@ -188,7 +201,7 @@ public class CampayPaymentService {
      */
     private Map<String, Object> buildCollectRequest(Transaction transaction, MobileMoneyRequestDTO request) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("amount", request.getMontant().intValue()); // Campay doesn't allow decimals
+        body.put("amount", request.getMontant().intValue());
         body.put("currency", request.getDevise() != null ? request.getDevise() : "XAF");
         body.put("from", formatPhoneNumber(request.getNumeroTelephonePaiement()));
         body.put("description", request.getDescription());
