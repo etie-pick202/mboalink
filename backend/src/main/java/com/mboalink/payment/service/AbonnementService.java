@@ -70,7 +70,7 @@ public class AbonnementService {
         log.info("Renouvellement abonnement pour utilisateur: {}", utilisateur.getId());
 
         Abonnement abonnement = abonnementRepository.findByUtilisateur(utilisateur)
-                .orElseThrow(() -> new RuntimeException("Abonnement not found"));
+                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
 
         // Reset subscription dates
         LocalDateTime newDateDebut = LocalDateTime.now();
@@ -92,7 +92,7 @@ public class AbonnementService {
      */
     public AbonnementResponseDTO getSubscription(Utilisateur utilisateur) {
         Abonnement abonnement = abonnementRepository.findByUtilisateur(utilisateur)
-                .orElseThrow(() -> new RuntimeException("Abonnement not found"));
+                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
         return mapToResponseDTO(abonnement);
     }
 
@@ -103,7 +103,7 @@ public class AbonnementService {
         log.warn("Suspension abonnement pour utilisateur: {}", utilisateur.getId());
 
         Abonnement abonnement = abonnementRepository.findByUtilisateur(utilisateur)
-                .orElseThrow(() -> new RuntimeException("Abonnement not found"));
+                .orElseThrow(() -> new RuntimeException("Abonnement non trouvé"));
 
         abonnement.setStatut("SUSPENDU");
         abonnement.setMisAJourLe(LocalDateTime.now());
