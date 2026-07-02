@@ -84,7 +84,7 @@ public class MobileMoneyService {
 
         } catch (Exception e) {
             log.error("Erreur initiation MTN MoMo: ", e);
-            throw new RuntimeException("MTN MoMo payment initiation failed", e);
+            throw new RuntimeException("Échec de l'initiation du paiement MTN MoMo", e);
         }
     }
 
@@ -158,7 +158,7 @@ public class MobileMoneyService {
 
         } catch (Exception e) {
             log.error("Erreur initiation Orange Money: ", e);
-            throw new RuntimeException("Orange Money payment initiation failed", e);
+            throw new RuntimeException("Échec de l'initiation du paiement Orange Money", e);
         }
     }
 

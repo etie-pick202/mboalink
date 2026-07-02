@@ -60,7 +60,7 @@ public class RecuService {
      */
     public RecuResponseDTO getReceiptByNumber(String numeroRecu) {
         Recu recu = recuRepository.findByNumeroRecu(numeroRecu)
-                .orElseThrow(() -> new RuntimeException("Reçu not found: " + numeroRecu));
+                .orElseThrow(() -> new RuntimeException("Reçu non trouvé: " + numeroRecu));
         return mapToResponseDTO(recu);
     }
 
@@ -69,7 +69,7 @@ public class RecuService {
      */
     public RecuResponseDTO getReceiptByTransaction(UUID transactionId) {
         Recu recu = recuRepository.findByTransaction(new Transaction())
-                .orElseThrow(() -> new RuntimeException("Reçu not found for transaction"));
+                .orElseThrow(() -> new RuntimeException("Reçu non trouvé pour cette transaction"));
         return mapToResponseDTO(recu);
     }
 
@@ -105,7 +105,7 @@ public class RecuService {
     public void updateReceiptPdfUrl(UUID recuId, String urlPdf) {
         log.info("Mise à jour URL PDF pour reçu: {}", recuId);
         Recu recu = recuRepository.findById(recuId)
-                .orElseThrow(() -> new RuntimeException("Reçu not found"));
+                .orElseThrow(() -> new RuntimeException("Reçu non trouvé"));
 
         recu.setUrlPdf(urlPdf);
         recuRepository.save(recu);
