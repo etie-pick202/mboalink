@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'app_colors.dart';
 import 'app_typography.dart';
 
@@ -65,13 +65,18 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle: AppTypography.button.copyWith(color: AppColors.textPrimary),
+          textStyle: AppTypography.button.copyWith(
+            color: AppColors.textPrimary,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: AppColors.surface,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.border),
@@ -88,7 +93,9 @@ class AppTheme {
           borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: AppColors.error),
         ),
-        hintStyle: AppTypography.bodyMedium.copyWith(color: AppColors.textFaint),
+        hintStyle: AppTypography.bodyMedium.copyWith(
+          color: AppColors.textFaint,
+        ),
       ),
       dividerTheme: const DividerThemeData(
         color: AppColors.border,
