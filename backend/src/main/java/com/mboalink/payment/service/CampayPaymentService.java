@@ -59,13 +59,19 @@ public class CampayPaymentService {
 
                 log.info("[CAMPAY] Paiement initié - Référence: {}", reference);
 
-                return Map.of(
-                        "success", true,
-                        "message", "Paiement initié avec succès",
-                        "reference", reference,
-                        "status", status,
-                        "transactionId", transaction.getId()
-                );
+                String instruction = "MTN_MOMO".equals(transaction.getOperateur())
+                        ? "Composez *126# sur votre téléphone pour valider le paiement"
+                        : "Composez #150*50# sur votre téléphone pour valider le paiement";
+
+                Map<String, Object> result = new java.util.HashMap<>();
+                result.put("success", true);
+                result.put("message", "Paiement initié avec succès");
+                result.put("reference", reference);
+                result.put("status", status);
+                result.put("transactionId", transaction.getId());
+                result.put("ussdCode", campayResponse.getOrDefault("ussd_code", ""));
+                result.put("instruction", instruction);
+                return result;
 
             } else {
                 String errorMsg = campayResponse != null
