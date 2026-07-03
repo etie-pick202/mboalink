@@ -40,7 +40,8 @@ public class SecurityConfig {
             "/api/v1/auth/reinitialiser-mot-de-passe",
             "/api/v1/auth/refresh",
             "/actuator/health",
-            "/api/v1/auth/logout"
+            "/api/v1/auth/logout",
+            "/api/v1/payments/webhook/campay"
     };
 
     @Bean
