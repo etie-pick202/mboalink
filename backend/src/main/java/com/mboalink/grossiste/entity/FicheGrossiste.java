@@ -70,6 +70,12 @@ public class FicheGrossiste {
     @Builder.Default
     private Integer nombreAvis = 0;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
     @Column(name = "coordonnees_visibles", nullable = false)
     @Builder.Default
     private Boolean coordonneesVisibles = false;

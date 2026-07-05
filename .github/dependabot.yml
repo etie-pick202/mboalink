@@ -1,0 +1,28 @@
+# ============================================================
+# Dependabot — Vérification automatique des dépendances
+# ============================================================
+version: 2
+
+updates:
+  # Backend Spring Boot (Gradle)
+  - package-ecosystem: "gradle"
+    directory: "/backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "backend"
+
+  # GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+    labels:
+      - "dependencies"
+      - "ci"
