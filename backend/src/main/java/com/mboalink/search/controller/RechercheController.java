@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/v1/search")
@@ -46,10 +47,11 @@ public class RechercheController {
     }
 
     private Utilisateur resolveUtilisateur(Authentication authentication) {
-        if (authentication == null || !authentication.isAuthenticated()) {
+        if (authentication == null || !authentication.isAuthenticated()) return null;
+        try {
+            return utilisateurRepository.findById(UUID.fromString(authentication.getName())).orElse(null);
+        } catch (IllegalArgumentException e) {
             return null;
         }
-        String email = authentication.getName();
-        return utilisateurRepository.findByEmail(email).orElse(null);
     }
 }
