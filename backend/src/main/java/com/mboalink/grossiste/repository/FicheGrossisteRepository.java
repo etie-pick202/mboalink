@@ -22,7 +22,8 @@ public interface FicheGrossisteRepository extends JpaRepository<FicheGrossiste, 
 
     @Query("SELECT f FROM FicheGrossiste f WHERE f.statutVerification IN ('VERIFIE', 'EN_ATTENTE') ORDER BY f.noteMoyenne DESC")
     List<FicheGrossiste> findActifsOrderByNote(Pageable pageable);
+
     List<FicheGrossiste> findByStatutVerificationOrderByCreeLeDesc(String statut);
-long countByStatutVerification(String statut);
-    
+
+    long countByStatutVerification(String statut);
 }

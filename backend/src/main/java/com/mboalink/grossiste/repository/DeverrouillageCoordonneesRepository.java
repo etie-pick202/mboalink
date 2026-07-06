@@ -11,4 +11,3 @@ public interface DeverrouillageCoordonneesRepository extends JpaRepository<Dever
 
     @Query("SELECT COUNT(DISTINCT d.utilisateur.id) FROM DeverrouillageCoordonnees d")
     long countUtilisateursDistincts();
-}

@@ -1,6 +1,7 @@
 package com.mboalink.auth.controller;
 
 import com.mboalink.auth.dto.*;
+import com.mboalink.auth.security.CurrentUser;
 import com.mboalink.auth.service.AuthService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -80,6 +81,16 @@ public class AuthController {
         return ResponseEntity.ok(Map.of(
                 "statut", "success",
                 "message", "Mot de passe réinitialisé. Vous pouvez vous reconnecter."
+        ));
+    }
+
+    @DeleteMapping("/compte")
+    public ResponseEntity<Map<String, String>> supprimerCompte(
+            @Valid @RequestBody SupprimerCompteRequest req) {
+        authService.supprimerCompte(CurrentUser.getId(), req);
+        return ResponseEntity.ok(Map.of(
+                "statut", "success",
+                "message", "Compte désactivé avec succès."
         ));
     }
 }

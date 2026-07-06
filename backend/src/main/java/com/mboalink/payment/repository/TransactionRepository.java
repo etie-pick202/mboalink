@@ -61,6 +61,9 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
      */
     long countByStatut(String statut);
 
+    /**
+     * Get monthly revenue totals for a given year and month range
+     */
     @Query(value = """
         SELECT EXTRACT(MONTH FROM cree_le) AS mois, COALESCE(SUM(montant), 0) AS total
         FROM transactions
@@ -70,7 +73,7 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
         GROUP BY EXTRACT(MONTH FROM cree_le)
         ORDER BY mois
         """, nativeQuery = true)
-List<Object[]> getRevenusParMois(@Param("annee") int annee,
-                                  @Param("moisDebut") int moisDebut,
-                                  @Param("moisFin") int moisFin);
+    List<Object[]> getRevenusParMois(@Param("annee") int annee,
+                                      @Param("moisDebut") int moisDebut,
+                                      @Param("moisFin") int moisFin);
 }

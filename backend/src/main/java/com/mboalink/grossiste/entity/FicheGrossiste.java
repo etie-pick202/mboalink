@@ -33,6 +33,9 @@ public class FicheGrossiste {
     @Column(name = "secteur_activite", length = 100)
     private String secteurActivite;
 
+    @Column(name = "annee_creation")
+    private Integer anneeCreation;
+
     @Column(name = "ville", length = 100)
     private String ville;
 
@@ -66,6 +69,12 @@ public class FicheGrossiste {
     @Column(name = "nombre_avis")
     @Builder.Default
     private Integer nombreAvis = 0;
+
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
 
     @Column(name = "coordonnees_visibles", nullable = false)
     @Builder.Default

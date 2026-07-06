@@ -18,6 +18,7 @@ public class NotationRequestDTO {
     @Max(value = 5, message = "Note maximum: 5")
     private Integer note;
 
+<<<<<<< HEAD
     @Size(max = 500, message = "Commentaire max 500 caractères")
     private String commentaire;
 
@@ -25,4 +26,13 @@ public class NotationRequestDTO {
     private Boolean transactionVerifiee; // Only true if user paid to unlock
 
     private String referenceTransaction; // Transaction ID for verification
+=======
+    @Size(max = 500, message = "Commentaire max 500 caracteres")
+    private String commentaire;
+
+    @NotNull(message = "Verification transaction requise")
+    private Boolean transactionVerifiee;
+
+    private String referenceTransaction;
+>>>>>>> origin/develop
 }
