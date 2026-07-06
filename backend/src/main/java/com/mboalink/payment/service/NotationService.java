@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.mboalink.auth.entity.Utilisateur;
 import com.mboalink.grossiste.entity.FicheGrossiste;
+import com.mboalink.grossiste.repository.FicheGrossisteRepository;
 import com.mboalink.payment.dto.NotationRequestDTO;
 import com.mboalink.payment.dto.NotationResponseDTO;
 import com.mboalink.payment.entity.Notation;
@@ -28,6 +29,7 @@ public class NotationService {
 
     private final NotationRepository notationRepository;
     private final TransactionRepository transactionRepository;
+    private final FicheGrossisteRepository ficheGrossisteRepository;
 
     /**
      * Create a new rating (only if user has verified transaction)
@@ -63,6 +65,8 @@ public class NotationService {
 
         Notation saved = notationRepository.save(notation);
         log.info("Notation créée: {} | Note: {}", saved.getId(), request.getNote());
+
+        updateFicheGrossisteStats(ficheGrossiste);
 
         return mapToResponseDTO(saved);
     }
@@ -144,6 +148,26 @@ public class NotationService {
         notation.setStatut(newStatut); // VISIBLE | MASQUE
         notation.setMisAJourLe(java.time.LocalDateTime.now());
         notationRepository.save(notation);
+
+        updateFicheGrossisteStats(notation.getFicheGrossiste());
+    }
+
+    /**
+     * Recompute and persist the wholesaler's rating stats (average + count)
+     */
+    private void updateFicheGrossisteStats(FicheGrossiste ficheGrossiste) {
+        FicheGrossiste managed = ficheGrossisteRepository.findById(ficheGrossiste.getId())
+                .orElseThrow(() -> new RuntimeException("Fiche grossiste non trouvée"));
+
+        long nombreAvis = notationRepository.countRatingsByGrossiste(managed);
+        Double noteMoyenne = notationRepository.findAverageRatingByGrossiste(managed).orElse(0.0);
+
+        managed.setNombreAvis((int) nombreAvis);
+        managed.setNoteMoyenne(noteMoyenne);
+        ficheGrossisteRepository.save(managed);
+
+        log.info("[NOTATION] FicheGrossiste {} mise à jour → note_moyenne: {} | nombre_avis: {}",
+                managed.getId(), noteMoyenne, nombreAvis);
     }
 
     /**
@@ -164,14 +188,14 @@ public class NotationService {
                 .ficheGrossisteName(notation.getFicheGrossiste().getNomEntreprise())
                 .utilisateurId(notation.getUtilisateur().getId())
                 .utilisateurNom(notation.getUtilisateur().getNom() + " " + notation.getUtilisateur().getPrenom())
-                .utilisateurAvatar(null) // No avatar field in Utilisateur yet
+                .utilisateurAvatar(null)
                 .note(notation.getNote())
                 .commentaire(notation.getCommentaire())
                 .transactionVerifiee(notation.getTransactionVerifiee())
                 .statut(notation.getStatut())
                 .creeLe(notation.getCreeLe())
                 .misAJourLe(notation.getMisAJourLe())
-                .peutEditer(false) // Will be set based on user context
+                .peutEditer(false)
                 .build();
     }
 
