@@ -1,4 +1,4 @@
-gpackage com.mboalink.payment.repository;
+package com.mboalink.payment.repository;
 
 import com.mboalink.grossiste.entity.FicheGrossiste;
 import com.mboalink.payment.entity.ReinitialisationNote;
