@@ -1,6 +1,7 @@
 package com.mboalink.search.service;
 
 import com.mboalink.auth.entity.Utilisateur;
+import com.mboalink.comportement.service.ComportementService;
 import com.mboalink.grossiste.entity.FicheGrossiste;
 import com.mboalink.grossiste.repository.FicheGrossisteRepository;
 import com.mboalink.search.dto.GrossisteSearchResultDto;
@@ -27,6 +28,7 @@ public class RechercheService {
 
     private final FicheGrossisteRepository ficheGrossisteRepository;
     private final HistoriqueRechercheRepository historiqueRechercheRepository;
+    private final ComportementService comportementService;
 
     @Transactional(readOnly = true)
     public RechercheResponseDto rechercherGrossistes(RechercheGrossisteRequest request, Utilisateur utilisateur) {
@@ -49,6 +51,7 @@ public class RechercheService {
         Page<FicheGrossiste> page = ficheGrossisteRepository.findAll(spec, pageable);
 
         sauvegarderHistorique(request, utilisateur, (int) page.getTotalElements());
+        enregistrerComportementRecherche(request, utilisateur);
 
         return RechercheResponseDto.builder()
                 .resultats(page.getContent().stream().map(f -> toDto(f, null, null)).toList())
@@ -138,6 +141,24 @@ public class RechercheService {
                 + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
                 * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    private void enregistrerComportementRecherche(RechercheGrossisteRequest request, Utilisateur utilisateur) {
+        if (utilisateur == null) return;
+        if (request.getMotCle() != null && !request.getMotCle().isBlank()) {
+            comportementService.enregistrer(utilisateur, "RECHERCHE", request.getMotCle(), request.getVille());
+        }
+        if (request.getCategorie() != null && !request.getCategorie().isBlank()) {
+            comportementService.enregistrer(utilisateur, "CLIC_CATEGORIE", request.getCategorie(), null);
+        }
+        if (request.getVille() != null && !request.getVille().isBlank()) {
+            comportementService.enregistrer(utilisateur, "FILTRE_VILLE", request.getVille(), request.getVille());
+        }
+        if (request.getPrixMin() != null || request.getPrixMax() != null) {
+            String fourchette = (request.getPrixMin() != null ? request.getPrixMin() : "0")
+                    + "-" + (request.getPrixMax() != null ? request.getPrixMax() : "∞");
+            comportementService.enregistrer(utilisateur, "FILTRE_PRIX", fourchette, null);
+        }
     }
 
     private void sauvegarderHistorique(RechercheGrossisteRequest request, Utilisateur utilisateur, int nombreResultats) {

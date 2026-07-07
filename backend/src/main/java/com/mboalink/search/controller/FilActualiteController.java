@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.UUID;
+
 @RestController
 @RequestMapping("/api/v1/search/fil-actualite")
 @RequiredArgsConstructor
@@ -37,6 +39,10 @@ public class FilActualiteController {
 
     private Utilisateur resolveUtilisateur(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) return null;
-        return utilisateurRepository.findByEmail(authentication.getName()).orElse(null);
+        try {
+            return utilisateurRepository.findById(UUID.fromString(authentication.getName())).orElse(null);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
