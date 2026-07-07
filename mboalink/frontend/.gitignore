@@ -1,0 +1,11 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+build/
+.pub-cache/
+pubspec.lock
+.idea/
+google-services.json
+GoogleService-Info.plist
+*.keystore
+key.properties
