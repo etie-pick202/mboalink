@@ -74,3 +74,4 @@ List<Object[]> getRevenusParMois(@Param("annee") int annee,
                                   @Param("moisDebut") int moisDebut,
                                   @Param("moisFin") int moisFin);
 }
+

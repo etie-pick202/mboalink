@@ -58,6 +58,9 @@ public class Utilisateur {
     @Builder.Default
     private Boolean estActif = true;
 
+    @Column(name = "supprime_le")
+    private LocalDateTime supprimeLe;
+
     @CreationTimestamp
     @Column(name = "cree_le", updatable = false)
     private LocalDateTime creeLe;
