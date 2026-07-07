@@ -188,14 +188,14 @@ public class NotationService {
                 .ficheGrossisteName(notation.getFicheGrossiste().getNomEntreprise())
                 .utilisateurId(notation.getUtilisateur().getId())
                 .utilisateurNom(notation.getUtilisateur().getNom() + " " + notation.getUtilisateur().getPrenom())
-                .utilisateurAvatar(null)
+                .utilisateurAvatar(null) // No avatar field in Utilisateur yet
                 .note(notation.getNote())
                 .commentaire(notation.getCommentaire())
                 .transactionVerifiee(notation.getTransactionVerifiee())
                 .statut(notation.getStatut())
                 .creeLe(notation.getCreeLe())
                 .misAJourLe(notation.getMisAJourLe())
-                .peutEditer(false)
+                .peutEditer(false) // Will be set based on user context
                 .build();
     }
 
