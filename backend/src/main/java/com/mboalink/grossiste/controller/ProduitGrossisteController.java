@@ -24,7 +24,6 @@ public class ProduitGrossisteController {
     private final SupabaseStorageService supabaseService;
     private final FicheGrossisteRepository ficheRepository;
 
-    // ← ROUTE EXISTANTE, pas touchée
     @PostMapping("/{ficheId}/produits")
     public ResponseEntity<ProduitResponse> ajouterProduit(
             @PathVariable UUID ficheId,
@@ -34,22 +33,18 @@ public class ProduitGrossisteController {
         return ResponseEntity.ok(reponse);
     }
 
-    // ← NOUVELLE ROUTE uniquement
     @PostMapping("/{ficheId}/produits/upload-url")
     public ResponseEntity<UploadUrlResponse> genererUrlUploadProduit(
             @PathVariable UUID ficheId,
             @Valid @RequestBody UploadUrlRequest req) {
 
-        // Vérifier que la fiche appartient à l'utilisateur connecté
         ficheRepository.findById(ficheId)
                 .filter(f -> f.getUtilisateur().getId().equals(CurrentUser.getId()))
                 .orElseThrow(() -> new IllegalStateException("Fiche introuvable ou accès refusé."));
 
-        // Construire le chemin de l'image dans le bucket
         String filePath = "produits/" + ficheId + "/"
                 + UUID.randomUUID() + "." + req.getExtension();
 
-        // Générer l'URL signée (valable 5 minutes)
         String uploadUrl = supabaseService.genererUrlUpload(filePath, 300);
 
         return ResponseEntity.ok(UploadUrlResponse.builder()
