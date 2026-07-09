@@ -65,4 +65,7 @@ public interface NotationRepository extends JpaRepository<Notation, UUID> {
      */
     @Query("SELECT COUNT(n) FROM Notation n WHERE n.ficheGrossiste = :ficheGrossiste AND n.statut = 'VISIBLE'")
     long countRatingsByGrossiste(@Param("ficheGrossiste") FicheGrossiste ficheGrossiste);
+
+      List<Notation> findByNoteLessThanOrderByCreeLeDesc(Integer note);
+    long countByNoteLessThan(Integer note);
 }

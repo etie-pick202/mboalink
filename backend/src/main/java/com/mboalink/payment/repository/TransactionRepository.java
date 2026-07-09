@@ -60,4 +60,18 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
      * Count successful transactions
      */
     long countByStatut(String statut);
+
+    @Query(value = """
+        SELECT EXTRACT(MONTH FROM cree_le) AS mois, COALESCE(SUM(montant), 0) AS total
+        FROM transactions
+        WHERE statut = 'SUCCES'
+          AND EXTRACT(YEAR FROM cree_le) = :annee
+          AND EXTRACT(MONTH FROM cree_le) BETWEEN :moisDebut AND :moisFin
+        GROUP BY EXTRACT(MONTH FROM cree_le)
+        ORDER BY mois
+        """, nativeQuery = true)
+List<Object[]> getRevenusParMois(@Param("annee") int annee,
+                                  @Param("moisDebut") int moisDebut,
+                                  @Param("moisFin") int moisFin);
 }
+

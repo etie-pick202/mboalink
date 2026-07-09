@@ -1,16 +1,11 @@
-import "package:flutter/material.dart";
+﻿import "package:flutter/material.dart";
 
 import "../../../../core/theme/app_colors.dart";
 
 /// Point animé (pulsation), fidèle à l'animation `mbpulse` de la maquette :
 /// opacité .3→1→.3, échelle .8→1→.8, 1.2s, en boucle, avec délai de départ.
 class PulsingDot extends StatefulWidget {
-  const PulsingDot({
-    required this.delay,
-    this.color = AppColors.accent,
-    this.size = 9,
-    super.key,
-  });
+  const PulsingDot({required this.delay, this.color = AppColors.accent, this.size = 9, super.key});
 
   final Duration delay;
   final Color color;
@@ -20,8 +15,7 @@ class PulsingDot extends StatefulWidget {
   State<PulsingDot> createState() => _PulsingDotState();
 }
 
-class _PulsingDotState extends State<PulsingDot>
-    with SingleTickerProviderStateMixin {
+class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _scale;
   late final Animation<double> _opacity;
@@ -29,10 +23,7 @@ class _PulsingDotState extends State<PulsingDot>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    );
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
 
     _scale = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 0.8, end: 1.0), weight: 50),

@@ -1,4 +1,4 @@
-import "package:flutter/material.dart";
+﻿import "package:flutter/material.dart";
 
 /// Écran temporaire affiché pour les routes pas encore développées.
 /// Sera remplacé progressivement par le vrai écran de chaque workflow.

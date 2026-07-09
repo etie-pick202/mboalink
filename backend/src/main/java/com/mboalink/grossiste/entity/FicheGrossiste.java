@@ -33,6 +33,9 @@ public class FicheGrossiste {
     @Column(name = "secteur_activite", length = 100)
     private String secteurActivite;
 
+    @Column(name = "annee_creation")
+    private Integer anneeCreation;
+
     @Column(name = "ville", length = 100)
     private String ville;
 
