@@ -1,3 +1,4 @@
+
 package com.mboalink.payment.service;
 
 import com.mboalink.auth.entity.Utilisateur;
@@ -151,11 +152,12 @@ public class AbonnementService {
      * Calculate expiry date based on subscription type
      */
     private LocalDateTime calculateExpiryDate(LocalDateTime startDate, String type) {
-        if (!"MENSUEL".equals(type)) {
-            throw new IllegalArgumentException(
-                "Seul l'abonnement MENSUEL est disponible pour le moment: " + type);
-        }
-        return startDate.plus(1, ChronoUnit.MONTHS);
+        return switch (type) {
+            case "MENSUEL" -> startDate.plus(1, ChronoUnit.MONTHS);
+            case "TRIMESTRIEL" -> startDate.plus(3, ChronoUnit.MONTHS);
+            case "ANNUEL" -> startDate.plus(1, ChronoUnit.YEARS);
+            default -> throw new IllegalArgumentException("Type abonnement invalide: " + type);
+        };
     }
 
     /**
