@@ -1,0 +1,23 @@
+name: Keep Render Alive
+
+on:
+  schedule:
+    # Toutes les 10 minutes (GitHub recommande de ne pas descendre sous 5 min,
+    # et l'exécution réelle peut être décalée de quelques minutes en cas de forte charge)
+    - cron: '*/10 * * * *'
+  workflow_dispatch:  # permet aussi de le lancer manuellement depuis l'onglet Actions
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping backend health endpoint
+        run: |
+          echo "Ping de https://mboalink.onrender.com/actuator/health"
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://mboalink.onrender.com/actuator/health)
+          echo "Code de réponse HTTP : $response"
+          if [ "$response" -ne 200 ]; then
+            echo "⚠️ Le service n'a pas répondu 200 (reçu $response)"
+            exit 1
+          fi
+          echo "✅ Service actif"
