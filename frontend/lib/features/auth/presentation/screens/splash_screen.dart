@@ -83,7 +83,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: isTablet ? 480 : double.infinity),
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? 480 : double.infinity,
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Column(
@@ -105,7 +107,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               ),
                               children: const [
                                 TextSpan(text: "MboaLink"),
-                                TextSpan(text: ".", style: TextStyle(color: AppColors.accent)),
+                                TextSpan(
+                                  text: ".",
+                                  style: TextStyle(color: AppColors.accent),
+                                ),
                               ],
                             ),
                             textAlign: TextAlign.center,
