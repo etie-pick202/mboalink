@@ -45,6 +45,13 @@ public class Transaction {
     @Column(name = "reference_externe", length = 100)
     private String referenceExterne;
 
+    /**
+     * ID de la fiche grossiste concernée.
+     * Requis uniquement pour DEVERROUILLAGE_COORDONNEES.
+     */
+    @Column(name = "fiche_grossiste_id")
+    private UUID ficheGrossisteId;
+
     /** EN_ATTENTE | SUCCES | ECHEC | REMBOURSE */
     @Column(name = "statut", nullable = false, length = 20)
     @Builder.Default

@@ -3,6 +3,7 @@ package com.mboalink.payment.dto;
 import jakarta.validation.constraints.*;
 import lombok.*;
 import java.math.BigDecimal;
+import java.util.UUID;
 
 @Data
 @NoArgsConstructor
@@ -29,6 +30,12 @@ public class TransactionRequestDTO {
     private String description;
 
     private String referenceExterne; // Optional: externe transaction ID
+
+    /**
+     * ID de la fiche grossiste à déverrouiller.
+     * Obligatoire si typeTransaction = DEVERROUILLAGE_COORDONNEES.
+     */
+    private UUID ficheGrossisteId;
 
     @Builder.Default
     private String devise = "XAF";

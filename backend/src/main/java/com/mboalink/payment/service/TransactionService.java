@@ -33,6 +33,12 @@ public class TransactionService {
         log.info("[TRANSACTION] Création transaction pour utilisateur: {} | Type: {}",
                 utilisateur.getId(), request.getTypeTransaction());
 
+        if ("DEVERROUILLAGE_COORDONNEES".equals(request.getTypeTransaction())
+                && request.getFicheGrossisteId() == null) {
+            throw new IllegalArgumentException(
+                    "ficheGrossisteId est requis pour une transaction DEVERROUILLAGE_COORDONNEES");
+        }
+
         Transaction transaction = Transaction.builder()
                 .utilisateur(utilisateur)
                 .typeTransaction(request.getTypeTransaction())
@@ -41,6 +47,7 @@ public class TransactionService {
                 .operateur(request.getOperateur())
                 .numeroTelephonePaiement(request.getNumeroTelephonePaiement())
                 .referenceExterne(null)
+                .ficheGrossisteId(request.getFicheGrossisteId())
                 .statut("EN_ATTENTE")
                 .description(request.getDescription())
                 .creeLe(LocalDateTime.now())
