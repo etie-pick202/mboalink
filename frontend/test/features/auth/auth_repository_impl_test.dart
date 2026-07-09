@@ -1,101 +1,183 @@
 import "package:flutter_test/flutter_test.dart";
-import "package:mocktail/mocktail.dart";
 
 import "package:mboalink/features/auth/data/datasources/auth_datasource.dart";
-import "package:mboalink/features/auth/data/models/auth_result_model.dart";
-import "package:mboalink/features/auth/data/models/message_response_model.dart";
 import "package:mboalink/features/auth/data/repositories/auth_repository_impl.dart";
+import "package:mboalink/features/auth/domain/entities/auth_session.dart";
+import "package:mboalink/features/auth/domain/entities/registration_result.dart";
 import "package:mboalink/features/auth/domain/entities/user_role.dart";
 
-class _MockAuthDatasource extends Mock implements AuthDatasource {}
+class _FakeDatasource implements AuthDatasource {
+  bool inscrireCalled = false;
+  bool verifierOtpCalled = false;
+  bool renvoyerOtpCalled = false;
+  bool connecterCalled = false;
+  bool rafraichirCalled = false;
+  bool deconnecterCalled = false;
+  bool motDePasseOublieCalled = false;
+  bool reinitialiserCalled = false;
+
+  @override
+  Future<RegistrationResult> inscrire({
+    required String nom,
+    required String prenom,
+    required String email,
+    required String motDePasse,
+    required String role,
+  }) async {
+    inscrireCalled = true;
+    return const RegistrationResult(
+      utilisateurId: "uid-test",
+      emailVerifie: false,
+    );
+  }
+
+  @override
+  Future<AuthSession> verifierOtp({
+    required String cible,
+    required String code,
+    required String type,
+    required String role,
+  }) async {
+    verifierOtpCalled = true;
+    return AuthSession(
+      accessToken: "tok",
+      refreshToken: "ref",
+      role: UserRole.fromApi(role),
+      emailVerifie: true,
+    );
+  }
+
+  @override
+  Future<void> renvoyerOtp({
+    required String cible,
+    required String type,
+  }) async {
+    renvoyerOtpCalled = true;
+  }
+
+  @override
+  Future<AuthSession> connecter({
+    required String identifiant,
+    required String motDePasse,
+  }) async {
+    connecterCalled = true;
+    return const AuthSession(
+      accessToken: "tok",
+      refreshToken: "ref",
+      role: UserRole.utilisateur,
+      emailVerifie: true,
+    );
+  }
+
+  @override
+  Future<AuthSession> rafraichir(String refreshToken) async {
+    rafraichirCalled = true;
+    return const AuthSession(
+      accessToken: "new-tok",
+      refreshToken: "new-ref",
+      role: UserRole.utilisateur,
+      emailVerifie: true,
+    );
+  }
+
+  @override
+  Future<void> deconnecter(String refreshToken) async {
+    deconnecterCalled = true;
+  }
+
+  @override
+  Future<void> motDePasseOublie(String identifiant) async {
+    motDePasseOublieCalled = true;
+  }
+
+  @override
+  Future<void> reinitialiserMotDePasse({
+    required String cible,
+    required String codeOtp,
+    required String nouveauMotDePasse,
+  }) async {
+    reinitialiserCalled = true;
+  }
+}
 
 void main() {
-  late _MockAuthDatasource datasource;
-  late AuthRepositoryImpl repository;
+  late _FakeDatasource datasource;
+  late AuthRepositoryImpl repo;
 
   setUp(() {
-    datasource = _MockAuthDatasource();
-    repository = AuthRepositoryImpl(datasource);
+    datasource = _FakeDatasource();
+    repo = AuthRepositoryImpl(datasource);
   });
 
-  group("inscrire", () {
-    test("retourne la cible email et le message du backend", () async {
-      when(
-        () => datasource.inscrire(
-          nom: any(named: "nom"),
-          prenom: any(named: "prenom"),
-          email: any(named: "email"),
-          telephone: any(named: "telephone"),
-          motDePasse: any(named: "motDePasse"),
-          role: any(named: "role"),
-        ),
-      ).thenAnswer(
-        (_) async => const AuthResultModel(
-          utilisateurId: "id-1",
-          role: "UTILISATEUR",
-          emailVerifie: false,
-          telephoneVerifie: false,
-          message:
-              "Compte créé. Vérifiez votre email pour activer votre compte.",
-        ),
+  test(
+    "inscrire délègue au datasource et retourne RegistrationResult",
+    () async {
+      final result = await repo.inscrire(
+        nom: "Tchana",
+        prenom: "Paul",
+        email: "paul@test.cm",
+        motDePasse: "Pass@2026",
+        role: "GROSSISTE",
       );
 
-      final result = await repository.inscrire(
-        nom: "Mayack",
-        prenom: "Etienne",
-        email: "etienne@test.cm",
-        motDePasse: "MboaLink@2026",
-        role: "UTILISATEUR",
-      );
+      expect(datasource.inscrireCalled, isTrue);
+      expect(result.utilisateurId, equals("uid-test"));
+      expect(result.emailVerifie, isFalse);
+    },
+  );
 
-      expect(result.cible, "etienne@test.cm");
-      expect(result.message, contains("Vérifiez votre email"));
-    });
+  test("verifierOtp délègue au datasource avec le role", () async {
+    final session = await repo.verifierOtp(
+      cible: "paul@test.cm",
+      code: "123456",
+      type: "INSCRIPTION_EMAIL",
+      role: "GROSSISTE",
+    );
+
+    expect(datasource.verifierOtpCalled, isTrue);
+    expect(session.role, equals(UserRole.grossiste));
+    expect(session.emailVerifie, isTrue);
   });
 
-  group("connecter", () {
-    test("convertit la réponse en AuthSession avec le bon rôle", () async {
-      when(
-        () => datasource.connecter(
-          identifiant: any(named: "identifiant"),
-          motDePasse: any(named: "motDePasse"),
-        ),
-      ).thenAnswer(
-        (_) async => const AuthResultModel(
-          accessToken: "access-1",
-          refreshToken: "refresh-1",
-          utilisateurId: "id-1",
-          role: "GROSSISTE",
-          emailVerifie: true,
-          telephoneVerifie: false,
-        ),
-      );
-
-      final session = await repository.connecter(
-        identifiant: "etienne@test.cm",
-        motDePasse: "MboaLink@2026",
-      );
-
-      expect(session.accessToken, "access-1");
-      expect(session.role, UserRole.grossiste);
-    });
+  test("renvoyerOtp délègue au datasource", () async {
+    await repo.renvoyerOtp(cible: "paul@test.cm", type: "INSCRIPTION_EMAIL");
+    expect(datasource.renvoyerOtpCalled, isTrue);
   });
 
-  group("motDePasseOublie", () {
-    test("retourne le message de confirmation", () async {
-      when(
-        () =>
-            datasource.motDePasseOublie(identifiant: any(named: "identifiant")),
-      ).thenAnswer(
-        (_) async => const MessageResponseModel(
-          statut: "success",
-          message: "Un code de réinitialisation vous a été envoyé.",
-        ),
-      );
+  test("connecter délègue au datasource", () async {
+    final session = await repo.connecter(
+      identifiant: "paul@test.cm",
+      motDePasse: "Pass@2026",
+    );
 
-      final message = await repository.motDePasseOublie("etienne@test.cm");
+    expect(datasource.connecterCalled, isTrue);
+    expect(session.accessToken, equals("tok"));
+    expect(session.role, equals(UserRole.utilisateur));
+  });
 
-      expect(message, "Un code de réinitialisation vous a été envoyé.");
-    });
+  test("rafraichir délègue au datasource", () async {
+    final session = await repo.rafraichir("old-ref");
+
+    expect(datasource.rafraichirCalled, isTrue);
+    expect(session.accessToken, equals("new-tok"));
+  });
+
+  test("deconnecter délègue au datasource", () async {
+    await repo.deconnecter("ref-token");
+    expect(datasource.deconnecterCalled, isTrue);
+  });
+
+  test("motDePasseOublie délègue au datasource", () async {
+    await repo.motDePasseOublie("paul@test.cm");
+    expect(datasource.motDePasseOublieCalled, isTrue);
+  });
+
+  test("reinitialiserMotDePasse délègue au datasource", () async {
+    await repo.reinitialiserMotDePasse(
+      cible: "paul@test.cm",
+      codeOtp: "123456",
+      nouveauMotDePasse: "NewPass@2026",
+    );
+    expect(datasource.reinitialiserCalled, isTrue);
   });
 }

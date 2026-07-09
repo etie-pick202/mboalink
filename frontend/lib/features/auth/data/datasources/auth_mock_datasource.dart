@@ -1,8 +1,240 @@
+import "dart:math";
+
 import "../../../../core/errors/app_exception.dart";
-import "../models/auth_result_model.dart";
-import "../models/message_response_model.dart";
+import "../../domain/entities/auth_session.dart";
+import "../../domain/entities/registration_result.dart";
+import "../../domain/entities/user_role.dart";
 import "auth_datasource.dart";
 
+/// Simule le comportement du backend Auth — utilisé quand USE_MOCK=true.
+/// Les comptes démo sont pré-seedés ; les nouveaux comptes créés via
+/// le formulaire d'inscription survivent le temps de la session.
+class AuthMockDatasource implements AuthDatasource {
+  static const _delay = Duration(milliseconds: 700);
+  static const _otpValide = "123456";
+
+  final Map<String, _MockAccount> _accounts = {
+    "demo.client@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-client",
+      nom: "Kamdem",
+      prenom: "Alice",
+      motDePasse: "Mboa@2026",
+      role: "UTILISATEUR",
+      email: "demo.client@mboalink.cm",
+      emailVerifie: true,
+    ),
+    "demo.grossiste@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-grossiste",
+      nom: "Tchana",
+      prenom: "Paul",
+      motDePasse: "Mboa@2026",
+      role: "GROSSISTE",
+      email: "demo.grossiste@mboalink.cm",
+      emailVerifie: true,
+    ),
+    "demo.grossiste.attente@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-grossiste-attente",
+      nom: "Kana",
+      prenom: "Serge",
+      motDePasse: "Mboa@2026",
+      role: "GROSSISTE",
+      email: "demo.grossiste.attente@mboalink.cm",
+      emailVerifie: true,
+    ),
+    "demo.grossiste.rejete@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-grossiste-rejete",
+      nom: "Sané",
+      prenom: "Bella",
+      motDePasse: "Mboa@2026",
+      role: "GROSSISTE",
+      email: "demo.grossiste.rejete@mboalink.cm",
+      emailVerifie: true,
+    ),
+    "demo.grossiste.abonnement@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-grossiste-abonnement",
+      nom: "Essomba",
+      prenom: "Bruno",
+      motDePasse: "Mboa@2026",
+      role: "GROSSISTE",
+      email: "demo.grossiste.abonnement@mboalink.cm",
+      emailVerifie: true,
+    ),
+    "demo.grossiste.valide@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-grossiste-valide",
+      nom: "Tchana",
+      prenom: "Georges",
+      motDePasse: "Mboa@2026",
+      role: "GROSSISTE",
+      email: "demo.grossiste.valide@mboalink.cm",
+      emailVerifie: true,
+    ),
+    "demo.grossiste.suspendu@mboalink.cm": _MockAccount(
+      id: "mock-user-demo-grossiste-suspendu",
+      nom: "Mballa",
+      prenom: "Rachel",
+      motDePasse: "Mboa@2026",
+      role: "GROSSISTE",
+      email: "demo.grossiste.suspendu@mboalink.cm",
+      emailVerifie: true,
+    ),
+    // Compte admin — non inscriptible via l'app, nommé par un admin existant
+    "admin@mboalink.cm": _MockAccount(
+      id: "mock-user-admin",
+      nom: "MboaLink",
+      prenom: "Admin",
+      motDePasse: "Admin@2026",
+      role: "ADMIN",
+      email: "admin@mboalink.cm",
+      emailVerifie: true,
+    ),
+  };
+
+  int _seq = 0;
+
+  @override
+  Future<RegistrationResult> inscrire({
+    required String nom,
+    required String prenom,
+    required String email,
+    required String motDePasse,
+    required String role,
+  }) async {
+    await Future.delayed(_delay);
+    if (_accounts.containsKey(email)) {
+      throw const AppException(
+        "Un compte existe déjà avec cet email.",
+        statusCode: 409,
+      );
+    }
+    // Seuls UTILISATEUR et GROSSISTE peuvent s'inscrire via l'app.
+    if (!UserRole.fromApi(role).isInscriptible) {
+      throw const AppException(
+        "Rôle non autorisé à l'inscription.",
+        statusCode: 403,
+      );
+    }
+    final id = "mock-user-${++_seq}";
+    _accounts[email] = _MockAccount(
+      id: id,
+      nom: nom,
+      prenom: prenom,
+      motDePasse: motDePasse,
+      role: role,
+      email: email,
+    );
+    return RegistrationResult(utilisateurId: id, emailVerifie: false);
+  }
+
+  @override
+  Future<AuthSession> verifierOtp({
+    required String cible,
+    required String code,
+    required String type,
+    required String role,
+  }) async {
+    await Future.delayed(_delay);
+    if (code != _otpValide) {
+      throw const AppException("Code OTP invalide ou expiré.", statusCode: 401);
+    }
+    final account = _accounts[cible];
+    if (account == null) {
+      throw const AppException("Compte introuvable.", statusCode: 404);
+    }
+    account.emailVerifie = true;
+    return _buildSession(account, roleOverride: role);
+  }
+
+  @override
+  Future<void> renvoyerOtp({
+    required String cible,
+    required String type,
+  }) async {
+    await Future.delayed(_delay);
+    if (!_accounts.containsKey(cible)) {
+      throw const AppException("Compte introuvable.", statusCode: 404);
+    }
+  }
+
+  @override
+  Future<AuthSession> connecter({
+    required String identifiant,
+    required String motDePasse,
+  }) async {
+    await Future.delayed(_delay);
+    final account = _accounts[identifiant];
+    if (account == null) {
+      throw const AppException("Identifiants incorrects.", statusCode: 401);
+    }
+    if (account.motDePasse != motDePasse) {
+      throw const AppException("Identifiants incorrects.", statusCode: 401);
+    }
+    if (!account.emailVerifie) {
+      throw const AppException(
+        "Votre email n'est pas encore vérifié.",
+        statusCode: 403,
+      );
+    }
+    return _buildSession(account);
+  }
+
+  @override
+  Future<AuthSession> rafraichir(String refreshToken) async {
+    await Future.delayed(_delay);
+    return AuthSession(
+      accessToken: "mock-access-${Random().nextInt(99999)}",
+      refreshToken: "mock-refresh-${Random().nextInt(99999)}",
+      role: UserRole.utilisateur,
+      emailVerifie: true,
+    );
+  }
+
+  @override
+  Future<void> deconnecter(String refreshToken) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+  }
+
+  @override
+  Future<void> motDePasseOublie(String identifiant) async {
+    await Future.delayed(_delay);
+    if (!_accounts.containsKey(identifiant)) {
+      throw const AppException("Compte introuvable.", statusCode: 404);
+    }
+  }
+
+  @override
+  Future<void> reinitialiserMotDePasse({
+    required String cible,
+    required String codeOtp,
+    required String nouveauMotDePasse,
+  }) async {
+    await Future.delayed(_delay);
+    if (codeOtp != _otpValide) {
+      throw const AppException("Code OTP invalide ou expiré.", statusCode: 401);
+    }
+    final account = _accounts[cible];
+    if (account == null) {
+      throw const AppException("Compte introuvable.", statusCode: 404);
+    }
+    account.motDePasse = nouveauMotDePasse;
+  }
+
+  AuthSession _buildSession(_MockAccount account, {String? roleOverride}) {
+    final role = UserRole.fromApi(roleOverride ?? account.role);
+    return AuthSession(
+      accessToken: "mock-access-${account.id}",
+      refreshToken: "mock-refresh-${account.id}",
+      role: role,
+      emailVerifie: account.emailVerifie,
+      userId: account.id,
+      nom: account.nom,
+      prenom: account.prenom,
+      email: account.email,
+    );
+  }
+}
+
+/// Compte en mémoire pour le mode mock.
+/// Utilise des champs simples — pas de getter/setter inutile.
 class _MockAccount {
   _MockAccount({
     required this.id,
@@ -10,206 +242,16 @@ class _MockAccount {
     required this.prenom,
     required this.motDePasse,
     required this.role,
-    this.email,
-    this.telephone,
+    required this.email,
+    this.emailVerifie = false,
   });
 
   final String id;
   final String nom;
   final String prenom;
-  final String motDePasse;
+  // Champ mutable directement — pas de getter/setter redondant.
+  String motDePasse;
   final String role;
-  final String? email;
-  final String? telephone;
-  bool emailVerifie = false;
-  bool telephoneVerifie = false;
-
-  String get cible => email ?? telephone!;
-}
-
-/// Implémentation mock — aucune requête réseau, délai simulé, code OTP
-/// fixe (aligné sur le mode MOCK du backend : 6 chiffres, "123456").
-/// Permet de développer/tester tout le workflow d'auth sans avoir le
-/// backend Spring lancé.
-class AuthMockDatasource implements AuthDatasource {
-  static const _mockOtp = "123456";
-  static const _delay = Duration(milliseconds: 700);
-
-  final Map<String, _MockAccount> _accounts = {};
-  int _sequence = 0;
-
-  @override
-  Future<AuthResultModel> inscrire({
-    required String nom,
-    required String prenom,
-    String? email,
-    String? telephone,
-    required String motDePasse,
-    required String role,
-  }) async {
-    await Future.delayed(_delay);
-    _sequence++;
-    final account = _MockAccount(
-      id: "mock-user-$_sequence",
-      nom: nom,
-      prenom: prenom,
-      motDePasse: motDePasse,
-      role: role,
-      email: email,
-      telephone: telephone,
-    );
-    _accounts[account.cible] = account;
-
-    return AuthResultModel(
-      utilisateurId: account.id,
-      role: role,
-      nom: nom,
-      prenom: prenom,
-      email: email,
-      telephone: telephone,
-      emailVerifie: false,
-      telephoneVerifie: false,
-      message:
-          "Compte créé. Vérifiez votre ${email != null ? "email" : "téléphone"} pour activer votre compte.",
-    );
-  }
-
-  @override
-  Future<AuthResultModel> verifierOtp({
-    required String cible,
-    required String code,
-    required String type,
-  }) async {
-    await Future.delayed(_delay);
-    if (code != _mockOtp) {
-      throw const AppException("Code OTP invalide.");
-    }
-
-    final account = _accounts.putIfAbsent(
-      cible,
-      () => _MockAccount(
-        id: "mock-user-guest",
-        nom: "Utilisateur",
-        prenom: "Test",
-        motDePasse: "Mock@2026",
-        role: "UTILISATEUR",
-        email: cible.contains("@") ? cible : null,
-        telephone: cible.contains("@") ? null : cible,
-      ),
-    );
-    account.emailVerifie = account.email != null;
-    account.telephoneVerifie = account.telephone != null;
-
-    return _sessionResponse(
-      account,
-      message: "Compte activé avec succès. Bienvenue !",
-    );
-  }
-
-  @override
-  Future<AuthResultModel> connecter({
-    required String identifiant,
-    required String motDePasse,
-  }) async {
-    await Future.delayed(_delay);
-    final account = _accounts[identifiant];
-    if (account == null || account.motDePasse != motDePasse) {
-      throw const AppException("Identifiants incorrects.");
-    }
-    return _sessionResponse(account, message: null);
-  }
-
-  @override
-  Future<AuthResultModel> rafraichir({required String refreshToken}) async {
-    await Future.delayed(_delay);
-    return const AuthResultModel(
-      accessToken: "mock-access-token-refreshed",
-      refreshToken: "mock-refresh-token-refreshed",
-      utilisateurId: "mock-user-current",
-      role: "UTILISATEUR",
-      emailVerifie: true,
-      telephoneVerifie: false,
-    );
-  }
-
-  @override
-  Future<MessageResponseModel> deconnecter({
-    required String refreshToken,
-  }) async {
-    await Future.delayed(_delay);
-    return const MessageResponseModel(
-      statut: "success",
-      message: "Déconnexion réussie.",
-    );
-  }
-
-  @override
-  Future<MessageResponseModel> motDePasseOublie({
-    required String identifiant,
-  }) async {
-    await Future.delayed(_delay);
-    return const MessageResponseModel(
-      statut: "success",
-      message: "Un code de réinitialisation vous a été envoyé.",
-    );
-  }
-
-  @override
-  Future<MessageResponseModel> reinitialiserMotDePasse({
-    required String cible,
-    required String codeOtp,
-    required String nouveauMotDePasse,
-  }) async {
-    await Future.delayed(_delay);
-    if (codeOtp != _mockOtp) {
-      throw const AppException("Code OTP invalide.");
-    }
-    final account = _accounts[cible];
-    if (account != null) {
-      _accounts[cible] =
-          _MockAccount(
-              id: account.id,
-              nom: account.nom,
-              prenom: account.prenom,
-              motDePasse: nouveauMotDePasse,
-              role: account.role,
-              email: account.email,
-              telephone: account.telephone,
-            )
-            ..emailVerifie = account.emailVerifie
-            ..telephoneVerifie = account.telephoneVerifie;
-    }
-    return const MessageResponseModel(
-      statut: "success",
-      message: "Mot de passe réinitialisé. Vous pouvez vous reconnecter.",
-    );
-  }
-
-  @override
-  Future<MessageResponseModel> renvoyerOtp({
-    required String cible,
-    required String type,
-  }) async {
-    await Future.delayed(_delay);
-    return const MessageResponseModel(
-      statut: "success",
-      message: "Code OTP renvoyé.",
-    );
-  }
-
-  AuthResultModel _sessionResponse(_MockAccount account, {String? message}) {
-    return AuthResultModel(
-      accessToken: "mock-access-token-${account.id}",
-      refreshToken: "mock-refresh-token-${account.id}",
-      utilisateurId: account.id,
-      role: account.role,
-      nom: account.nom,
-      prenom: account.prenom,
-      email: account.email,
-      telephone: account.telephone,
-      emailVerifie: account.emailVerifie,
-      telephoneVerifie: account.telephoneVerifie,
-      message: message,
-    );
-  }
+  final String email;
+  bool emailVerifie;
 }

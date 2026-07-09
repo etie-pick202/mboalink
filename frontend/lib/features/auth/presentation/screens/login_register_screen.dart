@@ -14,6 +14,7 @@ import "../../../../core/widgets/app_logo.dart";
 import "../../../../core/widgets/app_text_field.dart";
 import "../../../../core/widgets/primary_button.dart";
 import "../../domain/entities/registration_draft.dart";
+import "../../domain/entities/user_role.dart";
 import "../providers/auth_providers.dart";
 import "../widgets/phone_field.dart";
 import "../widgets/segmented_tabs.dart";
@@ -65,14 +66,20 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
     });
 
     try {
-      await ref
+      final session = await ref
           .read(authRepositoryProvider)
           .connecter(
             identifiant: _loginEmail.text.trim(),
             motDePasse: _loginPassword.text,
           );
+      ref.read(currentSessionProvider.notifier).state = session;
+      await ref.read(sessionStorageProvider).save(session);
       if (!mounted) return;
-      context.go(AppRoutes.home);
+      context.go(
+        session.role == UserRole.grossiste
+            ? AppRoutes.grossisteDashboard
+            : AppRoutes.home,
+      );
     } on AppException catch (e) {
       setState(() => _errorMessage = e.message);
     } finally {
