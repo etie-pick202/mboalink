@@ -1,43 +1,38 @@
-import "../models/auth_result_model.dart";
-import "../models/message_response_model.dart";
+import "../../domain/entities/auth_session.dart";
+import "../../domain/entities/registration_result.dart";
 
-/// Contrat commun mock/remote — la couche repository ne connaît que cette
-/// interface, jamais l'implémentation concrète.
 abstract class AuthDatasource {
-  Future<AuthResultModel> inscrire({
+  Future<RegistrationResult> inscrire({
     required String nom,
     required String prenom,
-    String? email,
-    String? telephone,
+    required String email,
     required String motDePasse,
     required String role,
   });
 
-  Future<AuthResultModel> verifierOtp({
+  Future<AuthSession> verifierOtp({
     required String cible,
     required String code,
     required String type,
+    required String role,
   });
 
-  Future<AuthResultModel> connecter({
+  Future<void> renvoyerOtp({required String cible, required String type});
+
+  Future<AuthSession> connecter({
     required String identifiant,
     required String motDePasse,
   });
 
-  Future<AuthResultModel> rafraichir({required String refreshToken});
+  Future<AuthSession> rafraichir(String refreshToken);
 
-  Future<MessageResponseModel> deconnecter({required String refreshToken});
+  Future<void> deconnecter(String refreshToken);
 
-  Future<MessageResponseModel> motDePasseOublie({required String identifiant});
+  Future<void> motDePasseOublie(String identifiant);
 
-  Future<MessageResponseModel> reinitialiserMotDePasse({
+  Future<void> reinitialiserMotDePasse({
     required String cible,
     required String codeOtp,
     required String nouveauMotDePasse,
-  });
-
-  Future<MessageResponseModel> renvoyerOtp({
-    required String cible,
-    required String type,
   });
 }

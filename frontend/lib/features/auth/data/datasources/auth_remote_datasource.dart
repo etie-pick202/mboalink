@@ -1,109 +1,142 @@
 import "package:dio/dio.dart";
 
 import "../../../../core/errors/app_exception.dart";
-import "../../../../core/network/api_endpoints.dart";
-import "../models/auth_result_model.dart";
-import "../models/message_response_model.dart";
+import "../../domain/entities/auth_session.dart";
+import "../../domain/entities/registration_result.dart";
+import "../../domain/entities/user_role.dart";
 import "auth_datasource.dart";
 
-/// Implémentation réelle — appelle le backend Spring Boot Auth (déjà
-/// développé et testé via Postman, endpoints /api/v1/auth/**).
+/// Implémentation réelle des appels API Auth — alignée avec le contrat
+/// Postman MboaLink Auth API (deploy_url = https://mboalink.onrender.com/api/v1).
 class AuthRemoteDatasource implements AuthDatasource {
   const AuthRemoteDatasource(this._dio);
 
   final Dio _dio;
 
+  // ── Inscription & OTP ──────────────────────────────────────────────────
+
   @override
-  Future<AuthResultModel> inscrire({
+  Future<RegistrationResult> inscrire({
     required String nom,
     required String prenom,
-    String? email,
-    String? telephone,
+    required String email,
     required String motDePasse,
     required String role,
-  }) {
-    return _post(ApiEndpoints.inscription, {
+  }) async {
+    // telephone n'est PAS envoyé — non supporté par le backend v1.
+    final response = await _post("/auth/inscription", {
       "nom": nom,
       "prenom": prenom,
-      "email": ?email,
-      "telephone": ?telephone,
+      "email": email,
       "motDePasse": motDePasse,
       "role": role,
-    }).then(AuthResultModel.fromJson);
+    });
+    return RegistrationResult(
+      utilisateurId: response["utilisateurId"] as String? ?? "",
+      emailVerifie: response["emailVerifie"] as bool? ?? false,
+    );
   }
 
   @override
-  Future<AuthResultModel> verifierOtp({
+  Future<AuthSession> verifierOtp({
     required String cible,
     required String code,
     required String type,
-  }) {
-    return _post(ApiEndpoints.verifierOtp, {
+    required String role,
+  }) async {
+    final response = await _post("/auth/verifier-otp", {
       "cible": cible,
       "code": code,
       "type": type,
-    }).then(AuthResultModel.fromJson);
+    });
+    // Le backend ne retourne pas le role dans cette réponse — on utilise
+    // le role passé en paramètre (choisi lors de l'inscription).
+    final backendRole = response["role"] as String?;
+    return AuthSession(
+      accessToken: response["accessToken"] as String,
+      refreshToken: response["refreshToken"] as String? ?? "",
+      emailVerifie: response["emailVerifie"] as bool? ?? true,
+      role: backendRole != null
+          ? UserRole.fromApi(backendRole)
+          : UserRole.fromApi(role),
+      userId: response["utilisateurId"] as String?,
+    );
   }
 
   @override
-  Future<AuthResultModel> connecter({
+  Future<void> renvoyerOtp({
+    required String cible,
+    required String type,
+  }) async {
+    await _post("/auth/renvoyer-otp", {"cible": cible, "type": type});
+  }
+
+  // ── Connexion & Tokens ─────────────────────────────────────────────────
+
+  @override
+  Future<AuthSession> connecter({
     required String identifiant,
     required String motDePasse,
-  }) {
-    return _post(ApiEndpoints.connexion, {
+  }) async {
+    // Clé "identifiant" (pas "email") — alignement avec le contrat backend.
+    final response = await _post("/auth/connexion", {
       "identifiant": identifiant,
       "motDePasse": motDePasse,
-    }).then(AuthResultModel.fromJson);
+    });
+    return AuthSession(
+      accessToken: response["accessToken"] as String,
+      refreshToken: response["refreshToken"] as String? ?? "",
+      role: UserRole.fromApi(response["role"] as String? ?? "UTILISATEUR"),
+      emailVerifie: response["emailVerifie"] as bool? ?? true,
+      userId: response["utilisateurId"] as String?,
+      nom: response["nom"] as String?,
+      prenom: response["prenom"] as String?,
+      email: response["email"] as String?,
+    );
   }
 
   @override
-  Future<AuthResultModel> rafraichir({required String refreshToken}) {
-    return _post(ApiEndpoints.refresh, {
+  Future<AuthSession> rafraichir(String refreshToken) async {
+    // POST /auth/refresh — body: { refreshToken }
+    final response = await _post("/auth/refresh", {
       "refreshToken": refreshToken,
-    }).then(AuthResultModel.fromJson);
+    });
+    return AuthSession(
+      accessToken: response["accessToken"] as String,
+      refreshToken: response["refreshToken"] as String? ?? "",
+      role: UserRole.fromApi(response["role"] as String? ?? "UTILISATEUR"),
+      emailVerifie: true,
+    );
   }
 
   @override
-  Future<MessageResponseModel> deconnecter({required String refreshToken}) {
-    return _post(ApiEndpoints.logout, {
-      "refreshToken": refreshToken,
-    }).then(MessageResponseModel.fromJson);
+  Future<void> deconnecter(String refreshToken) async {
+    // POST /auth/logout — body: { refreshToken }
+    await _post("/auth/logout", {"refreshToken": refreshToken});
+  }
+
+  // ── Mot de passe ───────────────────────────────────────────────────────
+
+  @override
+  Future<void> motDePasseOublie(String identifiant) async {
+    await _post("/auth/mot-de-passe-oublie", {"identifiant": identifiant});
   }
 
   @override
-  Future<MessageResponseModel> motDePasseOublie({required String identifiant}) {
-    return _post(ApiEndpoints.motDePasseOublie, {
-      "identifiant": identifiant,
-    }).then(MessageResponseModel.fromJson);
-  }
-
-  @override
-  Future<MessageResponseModel> reinitialiserMotDePasse({
+  Future<void> reinitialiserMotDePasse({
     required String cible,
     required String codeOtp,
     required String nouveauMotDePasse,
-  }) {
-    return _post(ApiEndpoints.reinitialiserMotDePasse, {
+  }) async {
+    await _post("/auth/reinitialiser-mot-de-passe", {
       "cible": cible,
       "codeOtp": codeOtp,
       "nouveauMotDePasse": nouveauMotDePasse,
-    }).then(MessageResponseModel.fromJson);
+    });
   }
 
-  @override
-  Future<MessageResponseModel> renvoyerOtp({
-    required String cible,
-    required String type,
-  }) {
-    return _post(ApiEndpoints.renvoyerOtp, {
-      "cible": cible,
-      "type": type,
-    }).then(MessageResponseModel.fromJson);
-  }
+  // ── Helper ─────────────────────────────────────────────────────────────
 
-  /// POST générique + conversion des erreurs Dio en AppException avec le
-  /// message métier renvoyé par le backend (format
-  /// { erreur, message, statut, timestamp }).
   Future<Map<String, dynamic>> _post(
     String path,
     Map<String, dynamic> data,
@@ -112,21 +145,33 @@ class AuthRemoteDatasource implements AuthDatasource {
       final response = await _dio.post<Map<String, dynamic>>(path, data: data);
       return response.data ?? const {};
     } on DioException catch (e) {
-      final body = e.response?.data;
-      if (body is Map<String, dynamic> && body["message"] is String) {
-        throw AppException(
-          body["message"] as String,
-          statusCode: e.response?.statusCode,
-        );
-      }
-      if (e.type == DioExceptionType.connectionTimeout ||
-          e.type == DioExceptionType.receiveTimeout ||
-          e.type == DioExceptionType.connectionError) {
-        throw const AppException(
-          "Connexion au serveur impossible. Vérifiez votre réseau.",
-        );
-      }
-      throw const AppException("Une erreur inattendue est survenue.");
+      throw _toAppException(e);
     }
+  }
+
+  AppException _toAppException(DioException e) {
+    final body = e.response?.data;
+    final statusCode = e.response?.statusCode;
+
+    if (body is Map<String, dynamic>) {
+      final message =
+          body["message"] as String? ??
+          body["erreur"] as String? ??
+          body["error"] as String?;
+      if (message != null) {
+        return AppException(message, statusCode: statusCode);
+      }
+    }
+
+    return switch (statusCode) {
+      400 => const AppException(
+        "Données invalides. Vérifiez vos informations.",
+      ),
+      401 => const AppException("Identifiants incorrects ou session expirée."),
+      403 => const AppException("Accès refusé."),
+      404 => const AppException("Compte introuvable."),
+      409 => const AppException("Un compte existe déjà avec cet email."),
+      _ => const AppException("Erreur de connexion au serveur. Réessayez."),
+    };
   }
 }

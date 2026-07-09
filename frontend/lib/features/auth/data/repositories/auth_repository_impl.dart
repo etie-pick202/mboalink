@@ -12,89 +12,56 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<RegistrationResult> inscrire({
     required String nom,
     required String prenom,
-    String? email,
-    String? telephone,
+    required String email,
     required String motDePasse,
     required String role,
-  }) async {
-    final result = await _datasource.inscrire(
-      nom: nom,
-      prenom: prenom,
-      email: email,
-      telephone: telephone,
-      motDePasse: motDePasse,
-      role: role,
-    );
-    return RegistrationResult(
-      utilisateurId: result.utilisateurId,
-      cible: email ?? telephone!,
-      message: result.message ?? "",
-    );
-  }
+  }) => _datasource.inscrire(
+    nom: nom,
+    prenom: prenom,
+    email: email,
+    motDePasse: motDePasse,
+    role: role,
+  );
 
   @override
   Future<AuthSession> verifierOtp({
     required String cible,
     required String code,
     required String type,
-  }) async {
-    final result = await _datasource.verifierOtp(
-      cible: cible,
-      code: code,
-      type: type,
-    );
-    return result.toSession();
-  }
+    required String role,
+  }) =>
+      _datasource.verifierOtp(cible: cible, code: code, type: type, role: role);
+
+  @override
+  Future<void> renvoyerOtp({required String cible, required String type}) =>
+      _datasource.renvoyerOtp(cible: cible, type: type);
 
   @override
   Future<AuthSession> connecter({
     required String identifiant,
     required String motDePasse,
-  }) async {
-    final result = await _datasource.connecter(
-      identifiant: identifiant,
-      motDePasse: motDePasse,
-    );
-    return result.toSession();
-  }
+  }) => _datasource.connecter(identifiant: identifiant, motDePasse: motDePasse);
 
   @override
-  Future<AuthSession> rafraichir(String refreshToken) async {
-    final result = await _datasource.rafraichir(refreshToken: refreshToken);
-    return result.toSession();
-  }
+  Future<AuthSession> rafraichir(String refreshToken) =>
+      _datasource.rafraichir(refreshToken);
 
   @override
-  Future<void> deconnecter(String refreshToken) {
-    return _datasource.deconnecter(refreshToken: refreshToken);
-  }
+  Future<void> deconnecter(String refreshToken) =>
+      _datasource.deconnecter(refreshToken);
 
   @override
-  Future<String> motDePasseOublie(String identifiant) async {
-    final result = await _datasource.motDePasseOublie(identifiant: identifiant);
-    return result.message;
-  }
+  Future<void> motDePasseOublie(String identifiant) =>
+      _datasource.motDePasseOublie(identifiant);
 
   @override
-  Future<String> reinitialiserMotDePasse({
+  Future<void> reinitialiserMotDePasse({
     required String cible,
     required String codeOtp,
     required String nouveauMotDePasse,
-  }) async {
-    final result = await _datasource.reinitialiserMotDePasse(
-      cible: cible,
-      codeOtp: codeOtp,
-      nouveauMotDePasse: nouveauMotDePasse,
-    );
-    return result.message;
-  }
-
-  @override
-  Future<String> renvoyerOtp({
-    required String cible,
-    required String type,
-  }) async {
-    final result = await _datasource.renvoyerOtp(cible: cible, type: type);
-    return result.message;
-  }
+  }) => _datasource.reinitialiserMotDePasse(
+    cible: cible,
+    codeOtp: codeOtp,
+    nouveauMotDePasse: nouveauMotDePasse,
+  );
 }

@@ -1,31 +1,64 @@
-﻿import "dart:async";
-
 import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:go_router/go_router.dart";
 import "package:google_fonts/google_fonts.dart";
 
 import "../../../../core/constants/app_routes.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/widgets/app_logo.dart";
+import "../../domain/entities/user_role.dart";
+import "../providers/auth_providers.dart";
 import "../widgets/pulsing_dot.dart";
 
-/// Écran 01 · Splash — conforme à la maquette MboaLink.
-class SplashScreen extends StatefulWidget {
+/// Écran 01 · Splash — bouton "Démarrer" (pas un loader automatique).
+/// Au tap : vérifie une session persistée ; si trouvée, demande une
+/// confirmation biométrique (si disponible sur l'appareil) avant de
+/// reprendre directement sur l'accueil/dashboard, sinon direction
+/// Onboarding.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  void initState() {
-    super.initState();
-    // TODO(auth): vérifier une session existante (token stocké) avant de
-    // rediriger — direct vers l'accueil si connecté, sinon onboarding.
-    Timer(const Duration(seconds: 2), () {
-      if (mounted) context.go(AppRoutes.onboarding);
-    });
+class _SplashScreenState extends ConsumerState<SplashScreen> {
+  bool _isStarting = false;
+
+  Future<void> _handleStart() async {
+    if (_isStarting) return;
+    setState(() => _isStarting = true);
+
+    final session = await ref.read(sessionStorageProvider).read();
+
+    if (session == null) {
+      await Future.delayed(const Duration(milliseconds: 900));
+      if (!mounted) return;
+      context.go(AppRoutes.onboarding);
+      return;
+    }
+
+    final biometricsAvailable = await ref
+        .read(biometricServiceProvider)
+        .isAvailable;
+    var authenticated = true;
+    if (biometricsAvailable) {
+      authenticated = await ref.read(biometricServiceProvider).authenticate();
+    }
+
+    if (!mounted) return;
+
+    if (!authenticated) {
+      context.go(AppRoutes.login);
+      return;
+    }
+
+    ref.read(currentSessionProvider.notifier).state = session;
+    context.go(
+      session.role == UserRole.grossiste
+          ? AppRoutes.grossisteDashboard
+          : AppRoutes.home,
+    );
   }
 
   @override
@@ -104,16 +137,58 @@ class _SplashScreenState extends State<SplashScreen> {
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(bottom: 46),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: const [
-                    PulsingDot(delay: Duration.zero),
-                    SizedBox(width: 9),
-                    PulsingDot(delay: Duration(milliseconds: 200)),
-                    SizedBox(width: 9),
-                    PulsingDot(delay: Duration(milliseconds: 400)),
-                  ],
+                padding: const EdgeInsets.fromLTRB(32, 0, 32, 46),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 250),
+                  child: _isStarting
+                      ? const Row(
+                          key: ValueKey("loading"),
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            PulsingDot(delay: Duration.zero),
+                            SizedBox(width: 9),
+                            PulsingDot(delay: Duration(milliseconds: 200)),
+                            SizedBox(width: 9),
+                            PulsingDot(delay: Duration(milliseconds: 400)),
+                          ],
+                        )
+                      : GestureDetector(
+                          key: const ValueKey("button"),
+                          onTap: _handleStart,
+                          child: Container(
+                            height: 54,
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(15),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.15),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 8),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  "Démarrer · Start",
+                                  style: GoogleFonts.manrope(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppColors.primaryDark,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  size: 20,
+                                  color: AppColors.primaryDark,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
                 ),
               ),
             ],

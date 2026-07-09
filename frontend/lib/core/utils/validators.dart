@@ -38,6 +38,19 @@ class Validators {
     return null;
   }
 
+  /// Téléphone camerounais obligatoire (contexte pro, contrairement à
+  /// phoneOptional utilisé à l'inscription).
+  static String? phoneRequired(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return "Le téléphone est obligatoire.";
+    }
+    final phoneRegex = RegExp(r"^6\d{8}$");
+    if (!phoneRegex.hasMatch(value.trim().replaceAll(" ", ""))) {
+      return "Numéro camerounais invalide (ex: 690000000).";
+    }
+    return null;
+  }
+
   /// Exige : 8 caractères min., une majuscule, une minuscule, un chiffre
   /// et un caractère spécial parmi @$!%*?&._-# — exactement la regex du
   /// backend (InscriptionRequest.motDePasse).
