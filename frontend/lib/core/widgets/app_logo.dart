@@ -1,4 +1,4 @@
-import "package:flutter/material.dart";
+﻿import "package:flutter/material.dart";
 import "package:material_symbols_icons/symbols.dart";
 
 import "../theme/app_colors.dart";
@@ -74,9 +74,7 @@ class AppLogo extends StatelessWidget {
                   shape: BoxShape.circle,
                   color: AppColors.accent,
                   border: Border.all(
-                    color: isGhost
-                        ? AppColors.primaryDark
-                        : AppColors.background,
+                    color: isGhost ? AppColors.primaryDark : AppColors.background,
                     width: size * 0.045,
                   ),
                 ),

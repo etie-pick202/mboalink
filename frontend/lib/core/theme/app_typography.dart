@@ -1,4 +1,4 @@
-import "package:flutter/material.dart";
+﻿import "package:flutter/material.dart";
 import "package:google_fonts/google_fonts.dart";
 import "app_colors.dart";
 
@@ -62,16 +62,16 @@ class AppTypography {
   );
 
   static TextStyle get label => GoogleFonts.manrope(
-    fontSize: 11,
-    fontWeight: FontWeight.w700,
-    letterSpacing: 0.4,
-    color: AppColors.textSecondary,
-  );
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 0.4,
+        color: AppColors.textSecondary,
+      );
 
   /// Libellé au-dessus des champs de formulaire (ex: "Téléphone · Phone").
   static TextStyle get fieldLabel => GoogleFonts.manrope(
-    fontSize: 12,
-    fontWeight: FontWeight.w600,
-    color: AppColors.textMuted,
-  );
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: AppColors.textMuted,
+      );
 }

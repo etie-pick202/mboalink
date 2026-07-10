@@ -1,4 +1,4 @@
-import "package:go_router/go_router.dart";
+﻿import "package:go_router/go_router.dart";
 
 import "../constants/app_routes.dart";
 import "../widgets/not_found_screen.dart";
@@ -53,14 +53,11 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.onboarding,
-      builder: (context, state) => const OnboardingScreen(),
+      builder: (context, state) =>
+          const PlaceholderScreen(title: "02 · Onboarding"),
     ),
     GoRoute(
       path: AppRoutes.login,
-      builder: (context, state) => const LoginRegisterScreen(),
-    ),
-    GoRoute(
-      path: AppRoutes.accountTypeChoice,
       builder: (context, state) =>
           AccountTypeChoiceScreen(draft: state.extra as RegistrationDraft),
     ),
