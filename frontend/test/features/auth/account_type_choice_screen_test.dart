@@ -22,6 +22,7 @@ class _FakeAuthRepository implements AuthRepository {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   }) async =>
       const RegistrationResult(utilisateurId: "uid-test", emailVerifie: false);
 
@@ -58,6 +59,22 @@ class _FakeAuthRepository implements AuthRepository {
   Future<void> reinitialiserMotDePasse({
     required String cible,
     required String codeOtp,
+    required String nouveauMotDePasse,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> devenirGrossiste() => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() => throw UnimplementedError();
+
+  @override
+  Future<void> modifierProfil({required String nom, required String prenom}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
     required String nouveauMotDePasse,
   }) => throw UnimplementedError();
 }

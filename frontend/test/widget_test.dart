@@ -26,6 +26,17 @@ class _NoBiometrics implements BiometricService {
 
   @override
   Future<bool> authenticate() async => false;
+
+  @override
+  Future<bool> authenticateBiometricOnly({required String reason}) async =>
+      false;
+
+  @override
+  Future<bool> authenticateWithDeviceFallback({required String reason}) async =>
+      false;
+
+  @override
+  Future<BiometricKind> preferredKind() async => BiometricKind.unavailable;
 }
 
 void main() {

@@ -32,10 +32,9 @@ class _FakeAuthRepository implements AuthRepository {
     required String email,
     required String motDePasse,
     required String role,
-  }) async => const RegistrationResult(
-    utilisateurId: "fake-uid",
-    emailVerifie: false,
-  );
+    String? telephone,
+  }) async =>
+      const RegistrationResult(utilisateurId: "fake-uid", emailVerifie: false);
 
   @override
   Future<AuthSession> verifierOtp({
@@ -66,6 +65,22 @@ class _FakeAuthRepository implements AuthRepository {
     required String codeOtp,
     required String nouveauMotDePasse,
   }) => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> devenirGrossiste() => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() => throw UnimplementedError();
+
+  @override
+  Future<void> modifierProfil({required String nom, required String prenom}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
+    required String nouveauMotDePasse,
+  }) => throw UnimplementedError();
 }
 
 class _NoSessionStorage implements SessionStorage {
@@ -90,12 +105,12 @@ void main() {
         GoRoute(
           path: "/home",
           builder: (context, state) =>
-          const Scaffold(body: Text("Accueil Client")),
+              const Scaffold(body: Text("Accueil Client")),
         ),
         GoRoute(
           path: "/grossiste/dashboard",
           builder: (context, state) =>
-          const Scaffold(body: Text("Dashboard Grossiste")),
+              const Scaffold(body: Text("Dashboard Grossiste")),
         ),
         GoRoute(
           path: "/inscription/type-compte",
@@ -137,7 +152,10 @@ void main() {
     // AppTextField rend le label comme Text SÉPARÉ du TextField — on
     // utilise l'index pour identifier les champs, pas le label.
     // Onglet Connexion : TextField[0] = email, TextField[1] = mot de passe.
-    await tester.enterText(find.byType(TextField).at(0), "fakeclient@mboalink.test");
+    await tester.enterText(
+      find.byType(TextField).at(0),
+      "fakeclient@mboalink.test",
+    );
     await tester.enterText(find.byType(TextField).at(1), "FakePass@9999");
     await tester.tap(find.text("Se connecter · Sign in"));
     await tester.pumpAndSettle();
@@ -159,52 +177,48 @@ void main() {
     expect(find.text("Email"), findsOneWidget);
   });
 
-  testWidgets(
-    "inscription valide navigue vers choix type compte",
-        (tester) async {
-      await tester.pumpWidget(buildApp());
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text("Inscription"));
-      await tester.pumpAndSettle();
-
-      // Onglet Inscription : [0]=Nom, [1]=Prénom, [2]=Email,
-      // [3]=Téléphone (PhoneField, optionnel), [4]=Mot de passe.
-      await tester.enterText(find.byType(TextField).at(0), "Fakenomtest");
-      await tester.enterText(find.byType(TextField).at(1), "Fakeprenomtest");
-      await tester.enterText(find.byType(TextField).at(2), "fake@mboalink.test");
-      // Index 3 = téléphone optionnel, on le laisse vide
-      await tester.enterText(find.byType(TextField).at(4), "FakePass@9999");
-
-      // Le formulaire est plus long que l'écran de test (800×600) — on
-      // scrolle jusqu'au bouton avant de tapper pour éviter l'erreur offset.
-      await tester.ensureVisible(find.text("Créer mon compte"));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text("Créer mon compte"));
-      await tester.pumpAndSettle();
-
-
-      expect(find.textContaining("Choix type"), findsOneWidget);
-    },
-  );
-
-  testWidgets("Google affiche snackbar bientôt disponible", (tester) async {
+  testWidgets("inscription valide navigue vers choix type compte", (
+    tester,
+  ) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text("Google"));
+    await tester.tap(find.text("Inscription"));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining("bientôt disponible"), findsOneWidget);
+    // Onglet Inscription : [0]=Nom, [1]=Prénom, [2]=Email,
+    // [3]=Téléphone (PhoneField, optionnel), [4]=Mot de passe.
+    await tester.enterText(find.byType(TextField).at(0), "Fakenomtest");
+    await tester.enterText(find.byType(TextField).at(1), "Fakeprenomtest");
+    await tester.enterText(find.byType(TextField).at(2), "fake@mboalink.test");
+    // Index 3 = téléphone optionnel, on le laisse vide
+    await tester.enterText(find.byType(TextField).at(4), "FakePass@9999");
+
+    // Le formulaire est plus long que l'écran de test (800×600) — on
+    // scrolle jusqu'au bouton avant de tapper pour éviter l'erreur offset.
+    await tester.ensureVisible(find.text("Créer mon compte"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Créer mon compte"));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining("Choix type"), findsOneWidget);
   });
 
-  testWidgets("Facebook affiche snackbar bientôt disponible", (tester) async {
+  testWidgets("Google et Facebook sont grisés (bientôt disponible)", (
+    tester,
+  ) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text("Facebook"));
+    expect(find.textContaining("Google"), findsOneWidget);
+    expect(find.textContaining("Facebook"), findsOneWidget);
+    expect(find.textContaining("bientôt"), findsNWidgets(2));
+
+    // Boutons désactivés — le tap ne doit provoquer aucune navigation ni erreur.
+    await tester.tap(find.textContaining("Google"), warnIfMissed: false);
+    await tester.tap(find.textContaining("Facebook"), warnIfMissed: false);
     await tester.pumpAndSettle();
 
-    expect(find.textContaining("bientôt disponible"), findsOneWidget);
+    expect(find.text("Se connecter · Sign in"), findsOneWidget);
   });
 }

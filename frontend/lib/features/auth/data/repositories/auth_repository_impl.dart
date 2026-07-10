@@ -15,12 +15,14 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   }) => _datasource.inscrire(
     nom: nom,
     prenom: prenom,
     email: email,
     motDePasse: motDePasse,
     role: role,
+    telephone: telephone,
   );
 
   @override
@@ -62,6 +64,26 @@ class AuthRepositoryImpl implements AuthRepository {
   }) => _datasource.reinitialiserMotDePasse(
     cible: cible,
     codeOtp: codeOtp,
+    nouveauMotDePasse: nouveauMotDePasse,
+  );
+
+  @override
+  Future<AuthSession> devenirGrossiste() => _datasource.devenirGrossiste();
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() =>
+      _datasource.redevenirUtilisateur();
+
+  @override
+  Future<void> modifierProfil({required String nom, required String prenom}) =>
+      _datasource.modifierProfil(nom: nom, prenom: prenom);
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
+    required String nouveauMotDePasse,
+  }) => _datasource.changerMotDePasse(
+    ancienMotDePasse: ancienMotDePasse,
     nouveauMotDePasse: nouveauMotDePasse,
   );
 }

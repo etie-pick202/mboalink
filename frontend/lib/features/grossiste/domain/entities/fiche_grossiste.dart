@@ -20,6 +20,9 @@ class FicheGrossiste {
     this.emailProfessionnel,
     this.siteWeb,
     this.logoUrl,
+    this.certifiePremium = false,
+    this.noteMoyenne,
+    this.nombreAvis = 0,
   });
 
   final String id;
@@ -40,6 +43,12 @@ class FicheGrossiste {
   final String? emailProfessionnel;
   final String? siteWeb;
   final String? logoUrl;
+
+  /// Badge payant optionnel (25000 FCFA), distinct du statut de
+  /// vérification gratuit issu de la revue des documents.
+  final bool certifiePremium;
+  final double? noteMoyenne;
+  final int nombreAvis;
 
   /// Fiche vide = champs obligatoires du volet 1 non renseignés.
   bool get estVide =>

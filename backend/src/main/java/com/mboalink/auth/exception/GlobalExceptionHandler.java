@@ -1,5 +1,8 @@
 package com.mboalink.auth.exception;
 
+import com.mboalink.commun.exception.AccesRefuseException;
+import com.mboalink.commun.exception.ConflitMetierException;
+import com.mboalink.commun.exception.RessourceIntrouvableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -50,6 +53,45 @@ public class GlobalExceptionHandler {
         return ResponseEntity
                 .status(HttpStatus.NOT_IMPLEMENTED)
                 .body(errorBody(HttpStatus.NOT_IMPLEMENTED, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(RessourceIntrouvableException.class)
+    public ResponseEntity<Map<String, Object>> handleRessourceIntrouvable(
+            RessourceIntrouvableException ex) {
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(errorBody(HttpStatus.NOT_FOUND, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(AccesRefuseException.class)
+    public ResponseEntity<Map<String, Object>> handleAccesRefuse(AccesRefuseException ex) {
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(errorBody(HttpStatus.FORBIDDEN, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(ConflitMetierException.class)
+    public ResponseEntity<Map<String, Object>> handleConflitMetier(ConflitMetierException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(errorBody(HttpStatus.CONFLICT, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage(), null));
+    }
+
+    // Filet de sécurité pour les IllegalStateException non encore migrées
+    // vers un type dédié (Ressource/Acces/Conflit) — 409 avec le vrai
+    // message plutôt qu'un 500 opaque.
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, Object>> handleIllegalState(IllegalStateException ex) {
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(errorBody(HttpStatus.CONFLICT, ex.getMessage(), null));
     }
 
     @ExceptionHandler(Exception.class)

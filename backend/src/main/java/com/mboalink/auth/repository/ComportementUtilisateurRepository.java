@@ -27,4 +27,27 @@ public interface ComportementUtilisateurRepository extends JpaRepository<Comport
            "WHERE c.utilisateur.id = :userId AND c.localisation IS NOT NULL " +
            "GROUP BY c.localisation ORDER BY COUNT(c) DESC")
     List<String> findTopLocalisation(@Param("userId") UUID userId, Pageable pageable);
+
+    // Nombre de vues d'une fiche (typeAction = VUE_FICHE, valeur = id de
+    // la fiche) sur une fenêtre glissante — signal de popularité pour
+    // PopulariteService. Ne compte que les vues des utilisateurs ayant
+    // accepté le tracking (ComportementService filtre déjà à l'écriture).
+    @Query("SELECT COUNT(c) FROM ComportementUtilisateur c " +
+           "WHERE c.typeAction = 'VUE_FICHE' AND c.valeur = :ficheId AND c.creeLe >= :depuis")
+    long countVuesFiche(@Param("ficheId") String ficheId, @Param("depuis") LocalDateTime depuis);
+
+    // Notification "nouveau grossiste près de vous" — utilisateurs ayant
+    // récemment manifesté un intérêt pour ce secteur ou cette ville.
+    @Query("SELECT DISTINCT c.utilisateur.id FROM ComportementUtilisateur c " +
+           "WHERE (c.typeAction = 'CLIC_CATEGORIE' AND c.valeur = :secteur) " +
+           "OR (c.typeAction = 'FILTRE_VILLE' AND c.localisation = :ville)")
+    List<UUID> findUtilisateursInteressesParSecteurOuVille(@Param("secteur") String secteur, @Param("ville") String ville);
+
+    // Statistiques du dashboard grossiste — nombre de vues par jour sur une
+    // fenêtre glissante, pour le graphique "Vues · 7 derniers jours".
+    @Query(value = "SELECT date_trunc('day', cree_le) AS jour, COUNT(*) AS total " +
+            "FROM comportements_utilisateurs " +
+            "WHERE type_action = 'VUE_FICHE' AND valeur = :ficheId AND cree_le >= :depuis " +
+            "GROUP BY jour ORDER BY jour", nativeQuery = true)
+    List<Object[]> countVuesParJour(@Param("ficheId") String ficheId, @Param("depuis") LocalDateTime depuis);
 }

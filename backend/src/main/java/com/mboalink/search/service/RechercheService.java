@@ -38,7 +38,8 @@ public class RechercheService {
                 request.getCategorie(),
                 request.getPrixMin(),
                 request.getPrixMax(),
-                request.getCertifie()
+                request.getCertifie(),
+                request.getCertifiePremium()
         );
 
         String tri = request.getTri() == null ? "NOTE_DESC" : request.getTri();
@@ -78,7 +79,8 @@ public class RechercheService {
             tous.sort(Comparator.comparingDouble(f -> calculerDistance(latUser, lonUser, f.getLatitude(), f.getLongitude())));
         } else {
             tous.sort(Comparator
-                    .comparingInt((FicheGrossiste f) -> "VERIFIE".equals(f.getStatutVerification()) ? 0 : 1)
+                    .comparingInt((FicheGrossiste f) -> Boolean.TRUE.equals(f.getCertifiePremium()) ? 0 : 1)
+                    .thenComparingInt(f -> "VERIFIE".equals(f.getStatutVerification()) ? 0 : 1)
                     .thenComparingDouble(f -> -(f.getNoteMoyenne() != null ? f.getNoteMoyenne() : 0.0)));
         }
 
@@ -117,6 +119,7 @@ public class RechercheService {
                 .noteMoyenne(fiche.getNoteMoyenne())
                 .nombreAvis(fiche.getNombreAvis())
                 .certifie("VERIFIE".equals(fiche.getStatutVerification()))
+                .certifiePremium(Boolean.TRUE.equals(fiche.getCertifiePremium()))
                 .distanceKm(distance)
                 .build();
     }

@@ -26,6 +26,12 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>MboaLink a besoin de l'appareil photo pour prendre en photo vos documents (pièce d'identité, RCCM) et le logo de votre boutique.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>MboaLink a besoin d'accéder à vos photos pour importer vos documents et le logo de votre boutique.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>MboaLink utilise Face ID pour confirmer votre identité rapidement et en sécurité.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

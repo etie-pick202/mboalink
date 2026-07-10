@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -79,6 +80,29 @@ public class FicheGrossiste {
     @Column(name = "coordonnees_visibles", nullable = false)
     @Builder.Default
     private Boolean coordonneesVisibles = false;
+
+    /**
+     * Score composite recalculé périodiquement (voir PopulariteService) à
+     * partir des déverrouillages, favoris, vues et avis — sert uniquement
+     * à déterminer prixDeverrouillageActuel, n'est jamais exposé tel quel.
+     */
+    @Column(name = "score_popularite")
+    @Builder.Default
+    private Double scorePopularite = 0.0;
+
+    /**
+     * Prix facturé pour déverrouiller les coordonnées de cette fiche —
+     * plancher 5000 FCFA, augmente par paliers avec la popularité.
+     */
+    @Column(name = "prix_deverrouillage_actuel", precision = 10, scale = 2)
+    @Builder.Default
+    private BigDecimal prixDeverrouillageActuel = BigDecimal.valueOf(5000);
+
+    /** Badge payant optionnel (25000 FCFA, paiement unique) — distinct du
+     *  statut de vérification gratuit issu de la revue des documents. */
+    @Column(name = "certifie_premium", nullable = false)
+    @Builder.Default
+    private Boolean certifiePremium = false;
 
     @CreationTimestamp
     @Column(name = "cree_le", updatable = false)

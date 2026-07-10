@@ -1,8 +1,10 @@
 package com.mboalink.grossiste.controller;
 
 import com.mboalink.auth.security.CurrentUser;
+import com.mboalink.grossiste.dto.ConfirmerLogoRequest;
 import com.mboalink.grossiste.dto.CreerFicheRequest;
 import com.mboalink.grossiste.dto.FicheResponse;
+import com.mboalink.grossiste.dto.FicheStatistiquesResponse;
 import com.mboalink.grossiste.service.FicheGrossisteService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,14 @@ public class FicheGrossisteController {
         return ResponseEntity.ok(ficheService.listerFiches());
     }
 
+    // GET /api/v1/grossistes/me  → fiche du grossiste connecté (404 si pas
+    // encore créée). Doit être déclaré avant /{ficheId} pour éviter que
+    // "me" soit interprété comme un UUID par le path variable.
+    @GetMapping("/me")
+    public ResponseEntity<FicheResponse> consulterMaFiche() {
+        return ResponseEntity.ok(ficheService.consulterMaFiche(CurrentUser.getId()));
+    }
+
     // GET /api/v1/grossistes/{ficheId}  → détail d'une fiche avec ses produits
     @GetMapping("/{ficheId}")
     public ResponseEntity<FicheResponse> consulterFiche(@PathVariable UUID ficheId) {
@@ -45,6 +55,25 @@ public class FicheGrossisteController {
             @Valid @RequestBody CreerFicheRequest req) {
         FicheResponse reponse = ficheService.modifierFiche(
                 CurrentUser.getId(), ficheId, req);
+        return ResponseEntity.ok(reponse);
+    }
+
+    // PATCH /api/v1/grossistes/{ficheId}/logo  → confirmer l'upload Supabase du logo
+    @PatchMapping("/{ficheId}/logo")
+    public ResponseEntity<FicheResponse> confirmerLogo(
+            @PathVariable UUID ficheId,
+            @Valid @RequestBody ConfirmerLogoRequest req) {
+        FicheResponse reponse = ficheService.confirmerLogo(
+                CurrentUser.getId(), ficheId, req.getFilePath());
+        return ResponseEntity.ok(reponse);
+    }
+
+    // GET /api/v1/grossistes/{ficheId}/statistiques  → dashboard grossiste
+    @GetMapping("/{ficheId}/statistiques")
+    public ResponseEntity<FicheStatistiquesResponse> consulterStatistiques(
+            @PathVariable UUID ficheId) {
+        FicheStatistiquesResponse reponse = ficheService.consulterStatistiques(
+                CurrentUser.getId(), ficheId);
         return ResponseEntity.ok(reponse);
     }
 }

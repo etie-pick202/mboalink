@@ -51,6 +51,25 @@ public class ProduitGrossisteController {
                 .uploadUrl(uploadUrl)
                 .filePath(filePath)
                 .expiresIn(300)
+                .finalUrl(supabaseService.construireUrl(filePath))
                 .build());
+    }
+
+    @PutMapping("/{ficheId}/produits/{produitId}")
+    public ResponseEntity<ProduitResponse> modifierProduit(
+            @PathVariable UUID ficheId,
+            @PathVariable UUID produitId,
+            @Valid @RequestBody CreerProduitRequest req) {
+        ProduitResponse reponse = produitService.modifierProduit(
+                CurrentUser.getId(), ficheId, produitId, req);
+        return ResponseEntity.ok(reponse);
+    }
+
+    @DeleteMapping("/{ficheId}/produits/{produitId}")
+    public ResponseEntity<Void> supprimerProduit(
+            @PathVariable UUID ficheId,
+            @PathVariable UUID produitId) {
+        produitService.supprimerProduit(CurrentUser.getId(), ficheId, produitId);
+        return ResponseEntity.noContent().build();
     }
 }

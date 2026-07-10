@@ -5,6 +5,7 @@ import com.mboalink.grossiste.entity.ProduitGrossiste;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -24,6 +25,11 @@ public class FicheResponse {
     private Double noteMoyenne;
     private Integer nombreAvis;
     private Integer anneeCreation;
+
+    /** Prix actuel du déverrouillage des coordonnées (varie avec la popularité). */
+    private BigDecimal prixDeverrouillageActuel;
+
+    private Boolean certifiePremium;
 
     // La liste des produits de la fiche (peut être vide)
     private List<ProduitResponse> produits;
@@ -45,6 +51,8 @@ public class FicheResponse {
                 .noteMoyenne(f.getNoteMoyenne())
                 .nombreAvis(f.getNombreAvis())
                 .anneeCreation(f.getAnneeCreation())
+                .prixDeverrouillageActuel(f.getPrixDeverrouillageActuel())
+                .certifiePremium(f.getCertifiePremium())
                 .build();
     }
 

@@ -5,9 +5,17 @@ import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
 
 import "../../../../core/constants/app_routes.dart";
+import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/contact_support_sheet.dart";
 import "../../../auth/presentation/providers/auth_providers.dart";
+import "../../../auth/presentation/screens/biometric_prompt_screen.dart";
+import "../../../payment/domain/entities/abonnement.dart";
+import "../../../payment/domain/entities/paiement_params.dart";
+import "../../../payment/domain/entities/plan.dart";
+import "../../../payment/domain/entities/transaction_paiement.dart";
+import "../../../payment/presentation/providers/payment_providers.dart";
 import "../../domain/entities/grossiste_dashboard_status.dart";
 import "../providers/grossiste_providers.dart";
 import "grossiste_nav_bar.dart";
@@ -28,31 +36,78 @@ class GrossisteProfilScreen extends ConsumerStatefulWidget {
 }
 
 class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
-  int _selectedPlan = 0;
-  bool _isPaying = false;
+  String? _selectedPlanId;
+  bool _isBasculingRole = false;
 
-  void _comingSoon(String feature) {
-    ScaffoldMessenger.of(
+  Future<void> _basculerEnClient() async {
+    if (_isBasculingRole) return;
+
+    final confirme = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Basculer en compte Client ?"),
+        content: const Text(
+          "Vous passerez à l'expérience Client. Votre fiche grossiste et vos "
+          "produits restent intacts — vous pourrez redevenir grossiste "
+          "à tout moment.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Annuler"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Confirmer"),
+          ),
+        ],
+      ),
+    );
+    if (confirme != true || !mounted) return;
+
+    final identiteConfirmee = await requireBiometricConfirmation(
       context,
-    ).showSnackBar(SnackBar(content: Text("$feature — bientôt disponible.")));
+      ref,
+      reason: "Confirmez votre identité pour basculer en compte Client.",
+    );
+    if (!identiteConfirmee || !mounted) return;
+
+    setState(() => _isBasculingRole = true);
+    try {
+      final session = await ref
+          .read(authRepositoryProvider)
+          .redevenirUtilisateur();
+      await ref.read(sessionStorageProvider).save(session);
+      ref.read(currentSessionProvider.notifier).state = session;
+      if (!mounted) return;
+      context.go(AppRoutes.home);
+    } on AppException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Une erreur est survenue. Réessayez.")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isBasculingRole = false);
+    }
   }
 
-  Future<void> _payer(String ficheId) async {
-    setState(() => _isPaying = true);
-    try {
-      await ref.read(grossisteRepositoryProvider).payerAbonnement(ficheId);
-      ref.invalidate(maFicheProvider);
-      if (!mounted) return;
-      // Retour au dashboard — maintenant en état "validée"
-      context.go(AppRoutes.grossisteDashboard);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Erreur lors du paiement : $e")));
-    } finally {
-      if (mounted) setState(() => _isPaying = false);
-    }
+  void _payer(Plan plan) {
+    context.push(
+      AppRoutes.paiementChoix,
+      extra: PaiementParams(
+        type: TypeTransaction.abonnement,
+        montant: plan.prix,
+        description: "Abonnement grossiste MboaLink · ${plan.nom}",
+        typeAbonnement: plan.periodicite,
+      ),
+    );
   }
 
   Future<void> _logout() async {
@@ -65,9 +120,29 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
     context.go(AppRoutes.login);
   }
 
+  String _formatDate(DateTime date) {
+    const mois = [
+      "jan",
+      "fév",
+      "mar",
+      "avr",
+      "mai",
+      "juin",
+      "juil",
+      "août",
+      "sep",
+      "oct",
+      "nov",
+      "déc",
+    ];
+    return "${date.day} ${mois[date.month - 1]} ${date.year}";
+  }
+
   @override
   Widget build(BuildContext context) {
     final ficheAsync = ref.watch(maFicheProvider);
+    final abonnementAsync = ref.watch(monAbonnementProvider);
+    final plansAsync = ref.watch(plansGrossisteProvider);
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.shortestSide >= 600;
 
@@ -77,8 +152,10 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
       error: (_, _) =>
           const Scaffold(body: Center(child: Text("Erreur de chargement"))),
       data: (fiche) {
+        final abonnementActif =
+            abonnementAsync.value?.statut == StatutAbonnement.actif;
         final isPaymentRequired =
-            fiche.dashboardStatus ==
+            fiche.dashboardStatus(abonnementActif: abonnementActif) ==
             GrossisteDashboardStatus.enAttenteAbonnement;
 
         return Scaffold(
@@ -125,11 +202,26 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                                       color: AppColors.successBg,
                                       borderRadius: BorderRadius.circular(14),
                                     ),
-                                    child: const Icon(
-                                      Symbols.storefront,
-                                      size: 25,
-                                      color: AppColors.primary,
-                                    ),
+                                    child:
+                                        fiche.logoUrl != null &&
+                                            fiche.logoUrl!.isNotEmpty &&
+                                            !fiche.logoUrl!.startsWith(
+                                              "mock://",
+                                            )
+                                        ? ClipRRect(
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
+                                            child: Image.network(
+                                              fiche.logoUrl!,
+                                              fit: BoxFit.cover,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Symbols.storefront,
+                                            size: 25,
+                                            color: AppColors.primary,
+                                          ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -219,7 +311,8 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (!isPaymentRequired) ...[
+                                  if (!isPaymentRequired &&
+                                      abonnementAsync.value != null) ...[
                                     Row(
                                       children: [
                                         Expanded(
@@ -236,7 +329,8 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                                                 ),
                                               ),
                                               Text(
-                                                "Pro · 15 000 F/mois",
+                                                "${abonnementAsync.value!.typeAbonnement == "ANNUEL" ? "Annuel" : "Mensuel"} · "
+                                                "${abonnementAsync.value!.montant.toStringAsFixed(0)} F",
                                                 style: GoogleFonts.spaceGrotesk(
                                                   fontSize: 16,
                                                   fontWeight: FontWeight.w700,
@@ -270,7 +364,8 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      "Expire le 12 juillet 2026",
+                                      "Expire le "
+                                      "${_formatDate(abonnementAsync.value!.dateFin)}",
                                       style: GoogleFonts.manrope(
                                         fontSize: 11,
                                         color: Colors.white.withValues(
@@ -281,13 +376,18 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                                     const SizedBox(height: 14),
                                     const Divider(color: Colors.white24),
                                     const SizedBox(height: 12),
-                                    Text(
-                                      "Renouveler ou changer de plan",
-                                      style: GoogleFonts.manrope(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.8,
+                                    GestureDetector(
+                                      onTap: () => context.push(
+                                        AppRoutes.grossisteMonAbonnement,
+                                      ),
+                                      child: Text(
+                                        "Renouveler ou changer de plan",
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w700,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.8,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -302,60 +402,88 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                                       ),
                                     ),
                                     const SizedBox(height: 10),
-                                  ],
-
-                                  // Plan Mensuel
-                                  _PlanTile(
-                                    label: "Mensuel",
-                                    detail: "Sans engagement",
-                                    price: "2 000 F",
-                                    unit: "/ mois",
-                                    isSelected: _selectedPlan == 0,
-                                    onTap: () =>
-                                        setState(() => _selectedPlan = 0),
-                                  ),
-                                  const SizedBox(height: 8),
-
-                                  // Plan Annuel
-                                  _PlanTile(
-                                    label: "Annuel",
-                                    detail: "20 000 F / an",
-                                    price: "1 666 F",
-                                    unit: "/ mois",
-                                    badge: "-2 MOIS",
-                                    isSelected: _selectedPlan == 1,
-                                    onTap: () =>
-                                        setState(() => _selectedPlan = 1),
-                                  ),
-                                  const SizedBox(height: 14),
-
-                                  // Bouton payer
-                                  Material(
-                                    color: AppColors.accent,
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: InkWell(
-                                      borderRadius: BorderRadius.circular(12),
-                                      onTap: _isPaying
-                                          ? null
-                                          : () => _payer(fiche.id),
-                                      child: SizedBox(
-                                        height: 48,
+                                    plansAsync.when(
+                                      loading: () => const Padding(
+                                        padding: EdgeInsets.symmetric(
+                                          vertical: 12,
+                                        ),
                                         child: Center(
-                                          child: _isPaying
-                                              ? const SizedBox(
-                                                  width: 22,
-                                                  height: 22,
-                                                  child:
-                                                      CircularProgressIndicator(
-                                                        strokeWidth: 2,
-                                                        color: AppColors
-                                                            .textPrimary,
-                                                      ),
-                                                )
-                                              : Text(
-                                                  _selectedPlan == 0
-                                                      ? "Payer via Mobile Money · 2 000 F/mois"
-                                                      : "Payer via Mobile Money · 20 000 F/an",
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      error: (_, _) => Text(
+                                        "Impossible de charger les plans.",
+                                        style: GoogleFonts.manrope(
+                                          fontSize: 12,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.7,
+                                          ),
+                                        ),
+                                      ),
+                                      data: (plans) => Column(
+                                        children: [
+                                          for (final plan in plans) ...[
+                                            _PlanTile(
+                                              label: plan.nom,
+                                              detail:
+                                                  plan.periodicite == "ANNUEL"
+                                                  ? "${plan.prix.toStringAsFixed(0)} F / an"
+                                                  : "Sans engagement",
+                                              price:
+                                                  "${(plan.periodicite == "ANNUEL" ? plan.prix / 12 : plan.prix).toStringAsFixed(0)} F",
+                                              unit: "/ mois",
+                                              badge:
+                                                  plan.periodicite == "ANNUEL"
+                                                  ? "-2 MOIS"
+                                                  : null,
+                                              isSelected:
+                                                  (_selectedPlanId ??
+                                                      plans.first.id) ==
+                                                  plan.id,
+                                              onTap: () => setState(
+                                                () => _selectedPlanId = plan.id,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 8),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 6),
+
+                                    // Bouton payer
+                                    plansAsync.maybeWhen(
+                                      data: (plans) {
+                                        if (plans.isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        final plan = plans.firstWhere(
+                                          (p) => p.id == _selectedPlanId,
+                                          orElse: () => plans.first,
+                                        );
+                                        return Material(
+                                          color: AppColors.accent,
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          child: InkWell(
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            onTap: () => _payer(plan),
+                                            child: SizedBox(
+                                              height: 48,
+                                              child: Center(
+                                                child: Text(
+                                                  "Payer via Mobile Money · "
+                                                  "${plan.prix.toStringAsFixed(0)} F",
                                                   style: GoogleFonts.manrope(
                                                     fontSize: 13,
                                                     fontWeight: FontWeight.w700,
@@ -363,10 +491,14 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                                                         AppColors.textPrimary,
                                                   ),
                                                 ),
-                                        ),
-                                      ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      orElse: () => const SizedBox.shrink(),
                                     ),
-                                  ),
+                                  ],
                                 ],
                               ),
                             ),
@@ -384,26 +516,40 @@ class _GrossisteProfilScreenState extends ConsumerState<GrossisteProfilScreen> {
                               ),
                               const SizedBox(height: 10),
                               _SettingsTile(
+                                icon: Symbols.edit,
+                                label: "Modifier mes informations",
+                                onTap: () => context.push(
+                                  AppRoutes.grossisteEditerFiche,
+                                ),
+                              ),
+                              _SettingsTile(
                                 icon: Symbols.visibility,
                                 label: "Prévisualiser ma fiche",
-                                onTap: () =>
-                                    _comingSoon("Prévisualiser ma fiche"),
+                                onTap: () => context.push(
+                                  AppRoutes.grossisteFichePreview,
+                                ),
                               ),
                               _SettingsTile(
                                 icon: Symbols.swap_horiz,
                                 label: "Basculer en compte Client",
-                                onTap: () =>
-                                    _comingSoon("Basculer en compte Client"),
+                                onTap: _basculerEnClient,
                               ),
                               _SettingsTile(
                                 icon: Symbols.support_agent,
                                 label: "Contacter le service client",
-                                onTap: () => _comingSoon("Service client"),
+                                onTap: () => showContactSupportSheet(context),
                               ),
                               _SettingsTile(
                                 icon: Symbols.shield_person,
                                 label: "Confidentialité & données",
-                                onTap: () => _comingSoon("Confidentialité"),
+                                onTap: () =>
+                                    context.push(AppRoutes.confidentialite),
+                              ),
+                              _SettingsTile(
+                                icon: Symbols.password,
+                                label: "Changer mon mot de passe",
+                                onTap: () =>
+                                    context.push(AppRoutes.changerMotDePasse),
                               ),
                               const SizedBox(height: 8),
                             ],

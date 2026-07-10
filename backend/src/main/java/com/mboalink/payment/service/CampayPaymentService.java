@@ -6,6 +6,7 @@ import com.mboalink.grossiste.entity.DeverrouillageCoordonnees;
 import com.mboalink.grossiste.entity.FicheGrossiste;
 import com.mboalink.grossiste.repository.DeverrouillageCoordonneesRepository;
 import com.mboalink.grossiste.repository.FicheGrossisteRepository;
+import com.mboalink.notification.service.NotificationService;
 import com.mboalink.payment.dto.MobileMoneyRequestDTO;
 import com.mboalink.payment.entity.Transaction;
 import com.mboalink.payment.repository.TransactionRepository;
@@ -34,6 +35,7 @@ public class CampayPaymentService {
     private final DeverrouillageCoordonneesRepository deverrouillageRepository;
     private final FicheGrossisteRepository ficheGrossisteRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final NotificationService notificationService;
 
     @Value("${campay.base.url}")
     private String campayBaseUrl;
@@ -140,6 +142,7 @@ public class CampayPaymentService {
                         recuService.generateReceipt(transaction);
                         log.info("[CAMPAY] Reçu généré pour transaction: {}", transaction.getId());
                         declencherDeverrouillageSiApplicable(transaction);
+                        notifierRecuDisponible(transaction);
                     }
                 });
 
@@ -188,6 +191,7 @@ public class CampayPaymentService {
                     recuService.generateReceipt(transaction);
                     log.info("[CAMPAY] Reçu généré automatiquement pour transaction: {}", transaction.getId());
                     declencherDeverrouillageSiApplicable(transaction);
+                    notifierRecuDisponible(transaction);
                 }
             });
 
@@ -203,6 +207,17 @@ public class CampayPaymentService {
                     "message", "Erreur traitement webhook: " + e.getMessage()
             );
         }
+    }
+
+    private void notifierRecuDisponible(Transaction transaction) {
+        notificationService.creer(
+                transaction.getUtilisateur(),
+                "RECU_PAIEMENT",
+                "Reçu de paiement disponible",
+                (transaction.getDescription() != null ? transaction.getDescription() : "Paiement") +
+                        " · " + transaction.getMontant() + " F",
+                transaction.getId().toString()
+        );
     }
 
     /**
@@ -223,8 +238,9 @@ public class CampayPaymentService {
             java.util.UUID utilisateurId = transaction.getUtilisateur().getId();
             java.util.UUID ficheId = transaction.getFicheGrossisteId();
 
-            // Si déjà déverrouillé, ne rien faire
-            if (deverrouillageRepository.existsByUtilisateurIdAndFicheGrossisteId(utilisateurId, ficheId)) {
+            // Si déjà déverrouillé il y a moins de 24h, ne rien faire
+            if (deverrouillageRepository.existsByUtilisateurIdAndFicheGrossisteIdAndDeverrouilleLeAfter(
+                    utilisateurId, ficheId, java.time.LocalDateTime.now().minusHours(24))) {
                 log.info("[CAMPAY] Coordonnées déjà déverrouillées pour utilisateur: {} fiche: {}",
                         utilisateurId, ficheId);
                 return;
@@ -237,13 +253,18 @@ public class CampayPaymentService {
             Utilisateur utilisateur = utilisateurRepository.findById(utilisateurId)
                     .orElseThrow(() -> new RuntimeException("Utilisateur introuvable: " + utilisateurId));
 
-            // Enregistrer le déverrouillage directement
-            DeverrouillageCoordonnees deverrouillage = DeverrouillageCoordonnees.builder()
-                    .utilisateur(utilisateur)
-                    .ficheGrossiste(fiche)
-                    .montantPaye(transaction.getMontant())
-                    .referenceTransaction(transaction.getId().toString())
-                    .build();
+            // Enregistrer ou renouveler le déverrouillage — un seul
+            // enregistrement par (utilisateur, fiche) en base (contrainte
+            // unique).
+            DeverrouillageCoordonnees deverrouillage = deverrouillageRepository
+                    .findByUtilisateurIdAndFicheGrossisteId(utilisateurId, ficheId)
+                    .orElseGet(() -> DeverrouillageCoordonnees.builder()
+                            .utilisateur(utilisateur)
+                            .ficheGrossiste(fiche)
+                            .build());
+            deverrouillage.setMontantPaye(transaction.getMontant());
+            deverrouillage.setReferenceTransaction(transaction.getId().toString());
+            deverrouillage.setDeverrouilleLe(java.time.LocalDateTime.now());
 
             deverrouillageRepository.save(deverrouillage);
 

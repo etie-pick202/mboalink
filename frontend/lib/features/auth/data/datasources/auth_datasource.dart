@@ -8,6 +8,7 @@ abstract class AuthDatasource {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   });
 
   Future<AuthSession> verifierOtp({
@@ -33,6 +34,25 @@ abstract class AuthDatasource {
   Future<void> reinitialiserMotDePasse({
     required String cible,
     required String codeOtp,
+    required String nouveauMotDePasse,
+  });
+
+  /// POST /auth/devenir-grossiste — bascule le compte connecté en
+  /// GROSSISTE et renvoie une session avec des tokens à jour.
+  Future<AuthSession> devenirGrossiste();
+
+  /// POST /auth/redevenir-utilisateur — bascule le compte connecté en
+  /// UTILISATEUR et renvoie une session avec des tokens à jour.
+  Future<AuthSession> redevenirUtilisateur();
+
+  /// PUT /profil — modifie nom/prénom du compte connecté.
+  Future<void> modifierProfil({required String nom, required String prenom});
+
+  /// PUT /auth/mot-de-passe — change le mot de passe du compte connecté.
+  /// Révoque les sessions actives côté backend (l'appelant doit
+  /// déconnecter et rediriger vers l'écran de connexion après succès).
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
     required String nouveauMotDePasse,
   });
 }

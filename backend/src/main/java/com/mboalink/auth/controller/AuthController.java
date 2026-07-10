@@ -84,6 +84,30 @@ public class AuthController {
         ));
     }
 
+    // Authentifié — change le mot de passe du compte connecté (ancien mot de
+    // passe requis) et révoque les sessions actives.
+    @PutMapping("/mot-de-passe")
+    public ResponseEntity<Map<String, String>> changerMotDePasse(
+            @Valid @RequestBody ChangerMotDePasseRequest req) {
+        authService.changerMotDePasse(CurrentUser.getId(), req);
+        return ResponseEntity.ok(Map.of(
+                "statut", "success",
+                "message", "Mot de passe modifié. Veuillez vous reconnecter."
+        ));
+    }
+
+    // Authentifié — bascule le compte connecté en GROSSISTE et réémet les tokens
+    @PostMapping("/devenir-grossiste")
+    public ResponseEntity<AuthResponseDto> devenirGrossiste() {
+        return ResponseEntity.ok(authService.devenirGrossiste(CurrentUser.getId()));
+    }
+
+    // Authentifié — bascule le compte connecté en UTILISATEUR et réémet les tokens
+    @PostMapping("/redevenir-utilisateur")
+    public ResponseEntity<AuthResponseDto> redevenirUtilisateur() {
+        return ResponseEntity.ok(authService.redevenirUtilisateur(CurrentUser.getId()));
+    }
+
     @DeleteMapping("/compte")
     public ResponseEntity<Map<String, String>> supprimerCompte(
             @Valid @RequestBody SupprimerCompteRequest req) {

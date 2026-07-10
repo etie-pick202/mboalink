@@ -1,12 +1,16 @@
+import "dart:io";
+
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:flutter_slidable/flutter_slidable.dart";
 import "package:google_fonts/google_fonts.dart";
+import "package:image_picker/image_picker.dart";
 import "package:material_symbols_icons/symbols.dart";
 
 import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/app_error_view.dart";
 import "../../../../core/widgets/app_loader.dart";
 import "../../../../core/widgets/app_text_field.dart";
 import "../../../../core/widgets/primary_button.dart";
@@ -31,17 +35,10 @@ class GrossisteBoutiqueScreen extends ConsumerWidget {
         bottom: false,
         child: ficheAsync.when(
           loading: () => const Center(child: AppLoader()),
-          error: (error, _) => Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                error is AppException
-                    ? error.message
-                    : "Impossible de charger votre fiche.",
-                textAlign: TextAlign.center,
-                style: AppTypography.bodyMedium,
-              ),
-            ),
+          error: (error, _) => AppErrorView(
+            error: error,
+            fallbackMessage: "Impossible de charger votre fiche.",
+            onRetry: () => ref.invalidate(maFicheProvider),
           ),
           data: (fiche) => _BoutiqueBody(fiche: fiche),
         ),
@@ -98,28 +95,10 @@ class _BoutiqueBody extends ConsumerWidget {
             Expanded(
               child: produitsAsync.when(
                 loading: () => const Center(child: AppLoader()),
-                error: (error, _) => Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          error is AppException
-                              ? error.message
-                              : "Impossible de charger les produits.",
-                          textAlign: TextAlign.center,
-                          style: AppTypography.bodyMedium,
-                        ),
-                        const SizedBox(height: 14),
-                        PrimaryButton(
-                          label: "Réessayer",
-                          onPressed: () =>
-                              ref.invalidate(ficheProduits(fiche.id)),
-                        ),
-                      ],
-                    ),
-                  ),
+                error: (error, _) => AppErrorView(
+                  error: error,
+                  fallbackMessage: "Impossible de charger les produits.",
+                  onRetry: () => ref.invalidate(ficheProduits(fiche.id)),
                 ),
                 data: (produits) => Column(
                   children: [
@@ -237,7 +216,10 @@ class _ProduitTile extends ConsumerWidget {
     ref.invalidate(ficheProduits(ficheId));
   }
 
-  Future<void> _confirmerSuppression(BuildContext context) async {
+  Future<void> _confirmerSuppression(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -259,9 +241,9 @@ class _ProduitTile extends ConsumerWidget {
       ),
     );
     if (confirmed == true) {
-      // TODO(backend): brancher la suppression réelle — endpoint DELETE
-      // /grossistes/{ficheId}/produits/{produitId} non encore confirmé.
-      await Future.delayed(const Duration(milliseconds: 300));
+      await ref
+          .read(grossisteRepositoryProvider)
+          .supprimerProduit(ficheId: ficheId, produitId: produit.id);
       onRefresh();
     }
   }
@@ -290,7 +272,7 @@ class _ProduitTile extends ConsumerWidget {
           motion: const ScrollMotion(),
           children: [
             SlidableAction(
-              onPressed: (ctx) => _confirmerSuppression(context),
+              onPressed: (ctx) => _confirmerSuppression(context, ref),
               backgroundColor: AppColors.errorBg,
               foregroundColor: AppColors.error,
               icon: Symbols.delete,
@@ -318,11 +300,22 @@ class _ProduitTile extends ConsumerWidget {
                   color: AppColors.background,
                   borderRadius: BorderRadius.circular(11),
                 ),
-                child: const Icon(
-                  Symbols.inventory_2,
-                  size: 24,
-                  color: AppColors.textMuted,
-                ),
+                child:
+                    produit.imageUrl != null &&
+                        produit.imageUrl!.isNotEmpty &&
+                        !produit.imageUrl!.startsWith("mock://")
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(11),
+                        child: Image.network(
+                          produit.imageUrl!,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const Icon(
+                        Symbols.inventory_2,
+                        size: 24,
+                        color: AppColors.textMuted,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -409,6 +402,8 @@ class _ProduitDialogState extends ConsumerState<_ProduitDialog> {
   late final TextEditingController _unite;
   bool _isSubmitting = false;
   String? _errorMessage;
+  XFile? _photo;
+  String? _imageUrlExistante;
 
   bool get _isEdit => widget.produit != null;
 
@@ -426,6 +421,7 @@ class _ProduitDialogState extends ConsumerState<_ProduitDialog> {
       text: p?.quantiteMinimale?.toStringAsFixed(0) ?? "",
     );
     _unite = TextEditingController(text: p?.uniteMesure ?? "");
+    _imageUrlExistante = p?.imageUrl;
   }
 
   @override
@@ -439,6 +435,14 @@ class _ProduitDialogState extends ConsumerState<_ProduitDialog> {
     super.dispose();
   }
 
+  Future<void> _pickPhoto() async {
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 1024,
+    );
+    if (file != null) setState(() => _photo = file);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() {
@@ -446,19 +450,33 @@ class _ProduitDialogState extends ConsumerState<_ProduitDialog> {
       _errorMessage = null;
     });
 
-    final donnees = <String, dynamic>{
-      "nom": _nom.text.trim(),
-      "description": _description.text.trim(),
-      "categorie": _categorie.text.trim(),
-      if (_prix.text.trim().isNotEmpty)
-        "prixUnitaire": double.tryParse(_prix.text.trim()),
-      if (_quantiteMin.text.trim().isNotEmpty)
-        "quantiteMinimale": double.tryParse(_quantiteMin.text.trim()),
-      "uniteMesure": _unite.text.trim(),
-      "estDisponible": true,
-    };
-
     try {
+      var imageUrl = _imageUrlExistante;
+      if (_photo != null) {
+        final bytes = await _photo!.readAsBytes();
+        final extension = _photo!.path.split(".").last;
+        imageUrl = await ref
+            .read(grossisteRepositoryProvider)
+            .uploaderPhotoProduit(
+              ficheId: widget.ficheId,
+              extension: extension,
+              bytes: bytes,
+            );
+      }
+
+      final donnees = <String, dynamic>{
+        "nom": _nom.text.trim(),
+        "description": _description.text.trim(),
+        "categorie": _categorie.text.trim(),
+        if (_prix.text.trim().isNotEmpty)
+          "prixUnitaire": double.tryParse(_prix.text.trim()),
+        if (_quantiteMin.text.trim().isNotEmpty)
+          "quantiteMinimale": double.tryParse(_quantiteMin.text.trim()),
+        "uniteMesure": _unite.text.trim(),
+        "estDisponible": true,
+        if (imageUrl != null) "imageUrl": imageUrl,
+      };
+
       if (_isEdit) {
         await ref
             .read(grossisteRepositoryProvider)
@@ -491,6 +509,44 @@ class _ProduitDialogState extends ConsumerState<_ProduitDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            Center(
+              child: GestureDetector(
+                onTap: _pickPhoto,
+                child: Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: AppColors.background,
+                    border: Border.all(color: AppColors.border),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: _photo != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Image.file(
+                            File(_photo!.path),
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : (_imageUrlExistante != null &&
+                            _imageUrlExistante!.isNotEmpty &&
+                            !_imageUrlExistante!.startsWith("mock://"))
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(15),
+                          child: Image.network(
+                            _imageUrlExistante!,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                      : const Icon(
+                          Symbols.add_a_photo,
+                          size: 24,
+                          color: AppColors.textMuted,
+                        ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
             AppTextField(
               label: "Nom *",
               controller: _nom,

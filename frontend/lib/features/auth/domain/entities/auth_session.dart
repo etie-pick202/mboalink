@@ -33,4 +33,19 @@ class AuthSession {
   final String? prenom;
   final String? email;
   final String? telephone;
+
+  AuthSession copyWith({String? nom, String? prenom}) {
+    return AuthSession(
+      accessToken: accessToken,
+      refreshToken: refreshToken,
+      role: role,
+      emailVerifie: emailVerifie,
+      telephoneVerifie: telephoneVerifie,
+      userId: userId,
+      nom: nom ?? this.nom,
+      prenom: prenom ?? this.prenom,
+      email: email,
+      telephone: telephone,
+    );
+  }
 }

@@ -16,6 +16,9 @@ class FicheGrossisteModel {
     this.emailProfessionnel,
     this.siteWeb,
     this.logoUrl,
+    this.certifiePremium = false,
+    this.noteMoyenne,
+    this.nombreAvis = 0,
   });
 
   final String id;
@@ -31,6 +34,9 @@ class FicheGrossisteModel {
   final String? emailProfessionnel;
   final String? siteWeb;
   final String? logoUrl;
+  final bool certifiePremium;
+  final double? noteMoyenne;
+  final int nombreAvis;
 
   factory FicheGrossisteModel.fromJson(Map<String, dynamic> json) {
     return FicheGrossisteModel(
@@ -51,6 +57,9 @@ class FicheGrossisteModel {
       emailProfessionnel: json["emailProfessionnel"] as String?,
       siteWeb: json["siteWeb"] as String?,
       logoUrl: json["logoUrl"] as String?,
+      certifiePremium: json["certifiePremium"] as bool? ?? false,
+      noteMoyenne: (json["noteMoyenne"] as num?)?.toDouble(),
+      nombreAvis: json["nombreAvis"] as int? ?? 0,
     );
   }
 
@@ -82,6 +91,9 @@ class FicheGrossisteModel {
       emailProfessionnel: emailProfessionnel,
       siteWeb: siteWeb,
       logoUrl: logoUrl,
+      certifiePremium: certifiePremium,
+      noteMoyenne: noteMoyenne,
+      nombreAvis: nombreAvis,
     );
   }
 }

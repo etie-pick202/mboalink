@@ -4,13 +4,15 @@ import "../entities/registration_result.dart";
 abstract class AuthRepository {
   /// POST /auth/inscription
   /// Crée le compte. Renvoie utilisateurId + emailVerifie (pas de tokens).
-  /// telephone ignoré — non supporté par le backend v1.
+  /// [telephone] optionnel — s'il est fourni, permet ensuite de choisir
+  /// l'OTP par SMS plutôt que par email (voir OtpScreen).
   Future<RegistrationResult> inscrire({
     required String nom,
     required String prenom,
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   });
 
   /// POST /auth/verifier-otp
@@ -51,6 +53,24 @@ abstract class AuthRepository {
   Future<void> reinitialiserMotDePasse({
     required String cible,
     required String codeOtp,
+    required String nouveauMotDePasse,
+  });
+
+  /// POST /auth/devenir-grossiste — bascule le compte connecté (rôle
+  /// UTILISATEUR) en GROSSISTE et renvoie une session avec des tokens à
+  /// jour (le rôle étant encodé dans le JWT).
+  Future<AuthSession> devenirGrossiste();
+
+  /// POST /auth/redevenir-utilisateur — bascule le compte connecté (rôle
+  /// GROSSISTE) en UTILISATEUR sans supprimer la fiche existante.
+  Future<AuthSession> redevenirUtilisateur();
+
+  /// PUT /profil — modifie nom/prénom du compte connecté.
+  Future<void> modifierProfil({required String nom, required String prenom});
+
+  /// PUT /auth/mot-de-passe — change le mot de passe du compte connecté.
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
     required String nouveauMotDePasse,
   });
 }

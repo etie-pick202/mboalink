@@ -2,6 +2,8 @@ package com.mboalink.grossiste.service;
 
 import com.mboalink.commun.dto.UploadUrlRequest;
 import com.mboalink.commun.dto.UploadUrlResponse;
+import com.mboalink.commun.exception.AccesRefuseException;
+import com.mboalink.commun.exception.RessourceIntrouvableException;
 import com.mboalink.grossiste.dto.ConfirmerUploadRequest;
 import com.mboalink.grossiste.dto.DocumentResponse;
 import com.mboalink.grossiste.entity.DocumentVerification;
@@ -31,10 +33,10 @@ public class DocumentUploadService {
 
         // Vérifier que la fiche existe et appartient à cet utilisateur
         FicheGrossiste fiche = ficheRepository.findById(ficheId)
-                .orElseThrow(() -> new IllegalStateException("Fiche introuvable."));
+                .orElseThrow(() -> new RessourceIntrouvableException("Fiche introuvable."));
 
         if (!fiche.getUtilisateur().getId().equals(utilisateurId)) {
-            throw new IllegalStateException("Vous ne pouvez uploader que pour votre propre fiche.");
+            throw new AccesRefuseException("Vous ne pouvez uploader que pour votre propre fiche.");
         }
 
         // Construire le chemin du fichier dans le bucket
@@ -58,22 +60,36 @@ public class DocumentUploadService {
 
         // Vérifier que la fiche existe et appartient à cet utilisateur
         FicheGrossiste fiche = ficheRepository.findById(ficheId)
-                .orElseThrow(() -> new IllegalStateException("Fiche introuvable."));
+                .orElseThrow(() -> new RessourceIntrouvableException("Fiche introuvable."));
 
         if (!fiche.getUtilisateur().getId().equals(utilisateurId)) {
-            throw new IllegalStateException("Vous ne pouvez confirmer que pour votre propre fiche.");
+            throw new AccesRefuseException("Vous ne pouvez confirmer que pour votre propre fiche.");
+        }
+
+        // Une fiche rejetée pour laquelle le grossiste renvoie un document
+        // repasse en attente — l'admin doit la revoir.
+        if ("REJETE".equals(fiche.getStatutVerification())) {
+            fiche.setStatutVerification("EN_ATTENTE");
+            ficheRepository.save(fiche);
         }
 
         // Construire l'URL du fichier dans Supabase
         String urlDocument = supabaseService.construireUrl(req.getFilePath());
 
-        // Enregistrer le document en base
-        DocumentVerification document = DocumentVerification.builder()
-                .ficheGrossiste(fiche)
-                .typeDocument(req.getTypeDocument())
-                .urlDocument(urlDocument)
-                .statut("EN_ATTENTE")
-                .build();
+        // Un document déjà soumis pour ce type (ex : CNI renvoyée après
+        // rejet) est mis à jour plutôt que dupliqué — sinon l'ancien
+        // document rejeté resterait visible à côté du nouveau.
+        DocumentVerification document = documentRepository
+                .findByFicheGrossisteIdAndTypeDocument(ficheId, req.getTypeDocument())
+                .orElseGet(() -> DocumentVerification.builder()
+                        .ficheGrossiste(fiche)
+                        .typeDocument(req.getTypeDocument())
+                        .build());
+
+        document.setUrlDocument(urlDocument);
+        document.setStatut("EN_ATTENTE");
+        document.setCommentaireAdmin(null);
+        document.setTraiteLe(null);
 
         DocumentVerification sauvegarde = documentRepository.save(document);
         return DocumentResponse.depuis(sauvegarde);

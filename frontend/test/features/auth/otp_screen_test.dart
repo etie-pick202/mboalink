@@ -29,7 +29,10 @@ class _FakeAuthRepository implements AuthRepository {
   );
 
   @override
-  Future<void> renvoyerOtp({required String cible, required String type}) async {}
+  Future<void> renvoyerOtp({
+    required String cible,
+    required String type,
+  }) async {}
 
   @override
   Future<RegistrationResult> inscrire({
@@ -38,6 +41,7 @@ class _FakeAuthRepository implements AuthRepository {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   }) => throw UnimplementedError();
 
   @override
@@ -63,6 +67,22 @@ class _FakeAuthRepository implements AuthRepository {
     required String codeOtp,
     required String nouveauMotDePasse,
   }) => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> devenirGrossiste() => throw UnimplementedError();
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() => throw UnimplementedError();
+
+  @override
+  Future<void> modifierProfil({required String nom, required String prenom}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
+    required String nouveauMotDePasse,
+  }) => throw UnimplementedError();
 }
 
 class _NoSessionStorage implements SessionStorage {
@@ -85,15 +105,13 @@ void main() {
       routes: [
         GoRoute(
           path: "/",
-          builder: (context, state) => OtpScreen(
-            cible: _testEmail,
-            isGrossiste: isGrossiste,
-          ),
+          builder: (context, state) =>
+              OtpScreen(cible: _testEmail, isGrossiste: isGrossiste),
         ),
         GoRoute(
           path: "/consent",
           builder: (context, state) =>
-          const Scaffold(body: Text("Consentement")),
+              const Scaffold(body: Text("Consentement")),
         ),
       ],
     );
@@ -143,7 +161,9 @@ void main() {
     expect(find.textContaining("1:0"), findsOneWidget);
   });
 
-  testWidgets("sans code saisi — tapper Vérifier ne navigue pas", (tester) async {
+  testWidgets("sans code saisi — tapper Vérifier ne navigue pas", (
+    tester,
+  ) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
@@ -157,7 +177,9 @@ void main() {
     expect(find.text("Consentement"), findsNothing);
   });
 
-  testWidgets("saisir le code complet navigue vers Consentement", (tester) async {
+  testWidgets("saisir le code complet navigue vers Consentement", (
+    tester,
+  ) async {
     await tester.pumpWidget(buildApp());
     await tester.pumpAndSettle();
 
@@ -184,16 +206,20 @@ void main() {
     expect(find.text("Consentement"), findsOneWidget);
   });
 
-  testWidgets("état initial stable — pas de spinner au démarrage", (tester) async {
+  testWidgets("état initial stable — pas de spinner au démarrage", (
+    tester,
+  ) async {
     final completer = Completer<AuthSession>();
     addTearDown(() {
       if (!completer.isCompleted) {
-        completer.complete(const AuthSession(
-          accessToken: "fake-tok",
-          refreshToken: "fake-ref",
-          role: UserRole.utilisateur,
-          emailVerifie: true,
-        ));
+        completer.complete(
+          const AuthSession(
+            accessToken: "fake-tok",
+            refreshToken: "fake-ref",
+            role: UserRole.utilisateur,
+            emailVerifie: true,
+          ),
+        );
       }
     });
 

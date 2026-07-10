@@ -167,6 +167,22 @@ public class AuthService {
     }
 
     @Transactional
+    public void changerMotDePasse(UUID utilisateurId, ChangerMotDePasseRequest req) {
+        Utilisateur u = utilisateurRepo.findById(utilisateurId)
+                .orElseThrow(() -> new AuthException("Utilisateur introuvable."));
+
+        if (u.getMotDePasseHash() == null ||
+                !passwordEncoder.matches(req.getAncienMotDePasse(), u.getMotDePasseHash())) {
+            throw new AuthException("Mot de passe actuel incorrect.");
+        }
+
+        u.setMotDePasseHash(passwordEncoder.encode(req.getNouveauMotDePasse()));
+        utilisateurRepo.save(u);
+        refreshTokenRepo.revoquerTous(u);
+        log.info("[AUTH] Mot de passe changé par l'utilisateur : {}", utilisateurId);
+    }
+
+    @Transactional
     public void demanderReinitialisationMotDePasse(MotDePasseOublieRequest req) {
         Utilisateur utilisateur = trouverParIdentifiant(req.getIdentifiant());
         String cible = req.getIdentifiant().contains("@")
@@ -190,6 +206,43 @@ public class AuthService {
     public void renvoyerOtp(RenvoyerOtpRequest req) {
         TypeOtp type = parseTypeOtp(req.getType());
         otpService.genererEtEnvoyer(req.getCible(), type);
+    }
+
+    // Bascule un compte UTILISATEUR en GROSSISTE ("Devenir grossiste"). Le
+    // rôle étant encodé dans le JWT, on révoque les anciens tokens et on en
+    // réémet de nouveaux pour que le client accède immédiatement aux
+    // routes grossiste (ex: création de fiche, qui exige ROLE_GROSSISTE).
+    @Transactional
+    public AuthResponseDto devenirGrossiste(UUID utilisateurId) {
+        Utilisateur utilisateur = utilisateurRepo.findById(utilisateurId)
+                .orElseThrow(() -> new AuthException("Utilisateur introuvable."));
+
+        if (utilisateur.getRole() != Role.GROSSISTE) {
+            utilisateur.setRole(Role.GROSSISTE);
+            utilisateurRepo.save(utilisateur);
+            refreshTokenRepo.revoquerTous(utilisateur);
+            log.info("[AUTH] Compte basculé en GROSSISTE : {}", utilisateur.getId());
+        }
+
+        return creerReponseAvecTokens(utilisateur, "Compte grossiste activé.");
+    }
+
+    // Bascule un compte GROSSISTE en UTILISATEUR ("Basculer en compte
+    // Client"). La fiche grossiste existante n'est pas supprimée — elle
+    // redevient accessible telle quelle si l'utilisateur repasse grossiste.
+    @Transactional
+    public AuthResponseDto redevenirUtilisateur(UUID utilisateurId) {
+        Utilisateur utilisateur = utilisateurRepo.findById(utilisateurId)
+                .orElseThrow(() -> new AuthException("Utilisateur introuvable."));
+
+        if (utilisateur.getRole() != Role.UTILISATEUR) {
+            utilisateur.setRole(Role.UTILISATEUR);
+            utilisateurRepo.save(utilisateur);
+            refreshTokenRepo.revoquerTous(utilisateur);
+            log.info("[AUTH] Compte basculé en UTILISATEUR : {}", utilisateur.getId());
+        }
+
+        return creerReponseAvecTokens(utilisateur, "Compte client activé.");
     }
 
     private AuthResponseDto creerReponseAvecTokens(Utilisateur u, String message) {

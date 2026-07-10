@@ -15,6 +15,7 @@ class _FakeDatasource implements AuthDatasource {
   bool deconnecterCalled = false;
   bool motDePasseOublieCalled = false;
   bool reinitialiserCalled = false;
+  bool devenirGrossisteCalled = false;
 
   @override
   Future<RegistrationResult> inscrire({
@@ -23,6 +24,7 @@ class _FakeDatasource implements AuthDatasource {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   }) async {
     inscrireCalled = true;
     return const RegistrationResult(
@@ -97,6 +99,50 @@ class _FakeDatasource implements AuthDatasource {
     required String nouveauMotDePasse,
   }) async {
     reinitialiserCalled = true;
+  }
+
+  @override
+  Future<AuthSession> devenirGrossiste() async {
+    devenirGrossisteCalled = true;
+    return const AuthSession(
+      accessToken: "tok-grossiste",
+      refreshToken: "ref-grossiste",
+      role: UserRole.grossiste,
+      emailVerifie: true,
+    );
+  }
+
+  bool modifierProfilCalled = false;
+
+  @override
+  Future<void> modifierProfil({
+    required String nom,
+    required String prenom,
+  }) async {
+    modifierProfilCalled = true;
+  }
+
+  bool redevenirUtilisateurCalled = false;
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() async {
+    redevenirUtilisateurCalled = true;
+    return const AuthSession(
+      accessToken: "tok-client",
+      refreshToken: "ref-client",
+      role: UserRole.utilisateur,
+      emailVerifie: true,
+    );
+  }
+
+  bool changerMotDePasseCalled = false;
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
+    required String nouveauMotDePasse,
+  }) async {
+    changerMotDePasseCalled = true;
   }
 }
 
@@ -179,5 +225,30 @@ void main() {
       nouveauMotDePasse: "NewPass@2026",
     );
     expect(datasource.reinitialiserCalled, isTrue);
+  });
+
+  test("devenirGrossiste délègue au datasource", () async {
+    final session = await repo.devenirGrossiste();
+    expect(datasource.devenirGrossisteCalled, isTrue);
+    expect(session.role, equals(UserRole.grossiste));
+  });
+
+  test("modifierProfil délègue au datasource", () async {
+    await repo.modifierProfil(nom: "Tchana", prenom: "Paul");
+    expect(datasource.modifierProfilCalled, isTrue);
+  });
+
+  test("redevenirUtilisateur délègue au datasource", () async {
+    final session = await repo.redevenirUtilisateur();
+    expect(datasource.redevenirUtilisateurCalled, isTrue);
+    expect(session.role, equals(UserRole.utilisateur));
+  });
+
+  test("changerMotDePasse délègue au datasource", () async {
+    await repo.changerMotDePasse(
+      ancienMotDePasse: "OldPass@2026",
+      nouveauMotDePasse: "NewPass@2026",
+    );
+    expect(datasource.changerMotDePasseCalled, isTrue);
   });
 }

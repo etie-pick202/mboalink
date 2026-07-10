@@ -126,6 +126,7 @@ public class FilActualiteService {
                 .noteMoyenne(fiche.getNoteMoyenne())
                 .nombreAvis(fiche.getNombreAvis())
                 .certifie("VERIFIE".equals(fiche.getStatutVerification()))
+                .certifiePremium(Boolean.TRUE.equals(fiche.getCertifiePremium()))
                 .distanceKm(distance)
                 .raisonRecommandation(raison)
                 .build();
