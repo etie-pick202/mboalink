@@ -133,7 +133,7 @@ public class RecuController {
                 limit = 10;
             }
 
-            List<RecuResponseDTO> receipts = recuService.getRecentReceipts(limit);
+            List<RecuResponseDTO> receipts = recuService.getRecentReceiptsForUser(utilisateur, limit);
 
             return ResponseEntity.ok(Map.of(
                     "success", true,

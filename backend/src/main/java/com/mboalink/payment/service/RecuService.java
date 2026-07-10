@@ -97,10 +97,20 @@ public class RecuService {
     }
 
     /**
-     * Get recent receipts for dashboard
+     * Get recent receipts globally (admin/statistiques uniquement).
      */
     public List<RecuResponseDTO> getRecentReceipts(int limit) {
         return recuRepository.findRecentReceipts(limit).stream()
+                .map(this::mapToResponseDTO)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Reçus récents de l'utilisateur connecté (écran "Reçus & paiements").
+     */
+    public List<RecuResponseDTO> getRecentReceiptsForUser(
+            com.mboalink.auth.entity.Utilisateur utilisateur, int limit) {
+        return recuRepository.findRecentReceiptsByUser(utilisateur, limit).stream()
                 .map(this::mapToResponseDTO)
                 .collect(Collectors.toList());
     }

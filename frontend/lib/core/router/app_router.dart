@@ -53,11 +53,14 @@ final GoRouter appRouter = GoRouter(
     ),
     GoRoute(
       path: AppRoutes.onboarding,
-      builder: (context, state) =>
-          const PlaceholderScreen(title: "02 · Onboarding"),
+      builder: (context, state) => const OnboardingScreen(),
     ),
     GoRoute(
       path: AppRoutes.login,
+      builder: (context, state) => const LoginRegisterScreen(),
+    ),
+    GoRoute(
+      path: AppRoutes.accountTypeChoice,
       builder: (context, state) =>
           AccountTypeChoiceScreen(draft: state.extra as RegistrationDraft),
     ),

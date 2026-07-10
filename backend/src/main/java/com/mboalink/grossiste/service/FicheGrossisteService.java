@@ -103,7 +103,9 @@ public class FicheGrossisteService {
 
         List<ProduitGrossiste> produits = produitRepository.findByFicheGrossisteId(fiche.getId());
 
-        return FicheResponse.avecProduits(fiche, produits);
+        // Propriétaire → réponse complète avec ses propres coordonnées
+        // (nécessaires au pré-remplissage de l'écran "Modifier ma fiche").
+        return FicheResponse.complet(fiche, produits);
     }
 
     // Modifier sa propre fiche
@@ -141,8 +143,9 @@ public class FicheGrossisteService {
         // 4. Sauvegarder (Hibernate détecte que la fiche existe déjà et fait un UPDATE)
         FicheGrossiste miseAJour = ficheRepository.save(fiche);
 
-        // 5. Renvoyer la réponse
-        return FicheResponse.depuis(miseAJour);
+        // 5. Renvoyer la réponse complète (propriétaire) avec ses coordonnées
+        List<ProduitGrossiste> produits = produitRepository.findByFicheGrossisteId(miseAJour.getId());
+        return FicheResponse.complet(miseAJour, produits);
     }
 
     // Confirme l'upload Supabase du logo — réutilise le même chemin
@@ -161,7 +164,8 @@ public class FicheGrossisteService {
         fiche.setLogoUrl(supabaseService.construireUrl(filePath));
         FicheGrossiste miseAJour = ficheRepository.save(fiche);
 
-        return FicheResponse.depuis(miseAJour);
+        List<ProduitGrossiste> produits = produitRepository.findByFicheGrossisteId(miseAJour.getId());
+        return FicheResponse.complet(miseAJour, produits);
     }
 
     // Statistiques réelles du dashboard grossiste (écran "Tableau de bord").
