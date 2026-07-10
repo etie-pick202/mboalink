@@ -39,6 +39,12 @@ public class DeverrouillageCoordonnees {
     @Column(name = "reference_transaction", length = 100)
     private String referenceTransaction;
 
+    // Distinct de creeLe (non modifiable) : mis à jour à chaque
+    // renouvellement du déverrouillage, sert de référence pour la
+    // fenêtre de 24h au-delà de laquelle la fiche redevient verrouillée.
+    @Column(name = "deverrouille_le", nullable = false)
+    private LocalDateTime deverrouilleLe;
+
     @CreationTimestamp
     @Column(name = "cree_le", updatable = false)
     private LocalDateTime creeLe;

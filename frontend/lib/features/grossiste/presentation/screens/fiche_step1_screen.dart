@@ -12,6 +12,7 @@ import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
 import "../../../../core/utils/validators.dart";
+import "../../../../core/widgets/app_error_view.dart";
 import "../../../../core/widgets/app_loader.dart";
 import "../../../../core/widgets/app_text_field.dart";
 import "../../../../core/widgets/primary_button.dart";
@@ -29,7 +30,13 @@ import "../providers/grossiste_providers.dart";
 /// uniquement après validation des documents par l'équipe MboaLink,
 /// depuis l'onglet "Profil" du dashboard (état enAttenteAbonnement).
 class GrossisteFicheStep1Screen extends ConsumerWidget {
-  const GrossisteFicheStep1Screen({super.key});
+  const GrossisteFicheStep1Screen({this.modeEdition = false, super.key});
+
+  /// true quand cet écran est ouvert depuis "Modifier mes informations"
+  /// (fiche déjà validée) plutôt que depuis le wizard d'inscription : on
+  /// revient en arrière après enregistrement au lieu d'enchaîner sur le
+  /// volet documents.
+  final bool modeEdition;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -40,15 +47,12 @@ class GrossisteFicheStep1Screen extends ConsumerWidget {
       body: SafeArea(
         child: ficheAsync.when(
           loading: () => const Center(child: AppLoader()),
-          error: (error, _) => Center(
-            child: Text(
-              error is AppException
-                  ? error.message
-                  : "Impossible de charger votre fiche.",
-              style: AppTypography.bodyMedium,
-            ),
+          error: (error, _) => AppErrorView(
+            error: error,
+            fallbackMessage: "Impossible de charger votre fiche.",
+            onRetry: () => ref.invalidate(maFicheProvider),
           ),
-          data: (fiche) => _Step1Form(fiche: fiche),
+          data: (fiche) => _Step1Form(fiche: fiche, modeEdition: modeEdition),
         ),
       ),
     );
@@ -56,9 +60,10 @@ class GrossisteFicheStep1Screen extends ConsumerWidget {
 }
 
 class _Step1Form extends ConsumerStatefulWidget {
-  const _Step1Form({required this.fiche});
+  const _Step1Form({required this.fiche, this.modeEdition = false});
 
   final FicheGrossiste fiche;
+  final bool modeEdition;
 
   @override
   ConsumerState<_Step1Form> createState() => _Step1FormState();
@@ -132,29 +137,49 @@ class _Step1FormState extends ConsumerState<_Step1Form> {
       _errorMessage = null;
     });
 
+    final donnees = {
+      "nomEntreprise": _nom.text.trim(),
+      "description": _description.text.trim(),
+      "secteurActivite": _secteur.text.trim(),
+      "ville": _ville.text.trim(),
+      "quartier": _quartier.text.trim(),
+      "adresseComplete": _adresse.text.trim(),
+      "telephoneProfessionnel": "+237${_telephone.text.trim()}",
+      "emailProfessionnel": _emailPro.text.trim(),
+      if (_siteWeb.text.trim().isNotEmpty) "siteWeb": _siteWeb.text.trim(),
+      // Le logo est uploadé séparément après création/mise à jour de la
+      // fiche (il faut son id) — on garde ici l'URL existante, si elle y est.
+      if (widget.fiche.logoUrl != null) "logoUrl": widget.fiche.logoUrl,
+    };
+
     try {
-      await ref
-          .read(grossisteRepositoryProvider)
-          .mettreAJourFiche(
-            ficheId: widget.fiche.id,
-            donnees: {
-              "nomEntreprise": _nom.text.trim(),
-              "description": _description.text.trim(),
-              "secteurActivite": _secteur.text.trim(),
-              "ville": _ville.text.trim(),
-              "quartier": _quartier.text.trim(),
-              "adresseComplete": _adresse.text.trim(),
-              "telephoneProfessionnel": "+237${_telephone.text.trim()}",
-              "emailProfessionnel": _emailPro.text.trim(),
-              if (_siteWeb.text.trim().isNotEmpty)
-                "siteWeb": _siteWeb.text.trim(),
-              // TODO(backend): logoUrl factice — remplacer par vraie URL d'upload.
-              "logoUrl": _photo?.path ?? widget.fiche.logoUrl,
-            },
-          );
+      final repo = ref.read(grossisteRepositoryProvider);
+      // Pas encore de fiche (id vide) → création (POST). Sinon → mise à
+      // jour de la fiche existante (PUT).
+      var fiche = widget.fiche.id.isEmpty
+          ? await repo.creerFiche(donnees)
+          : await repo.mettreAJourFiche(
+              ficheId: widget.fiche.id,
+              donnees: donnees,
+            );
+
+      if (_photo != null) {
+        final bytes = await _photo!.readAsBytes();
+        final extension = _photo!.path.split(".").last;
+        fiche = await repo.uploaderLogo(
+          ficheId: fiche.id,
+          extension: extension,
+          bytes: bytes,
+        );
+      }
+
       ref.invalidate(maFicheProvider);
       if (!mounted) return;
-      context.push(AppRoutes.grossisteFicheStep2, extra: widget.fiche.id);
+      if (widget.modeEdition) {
+        context.pop();
+      } else {
+        context.push(AppRoutes.grossisteFicheStep2, extra: fiche.id);
+      }
     } on AppException catch (e) {
       setState(() => _errorMessage = e.message);
     } finally {
@@ -187,7 +212,7 @@ class _Step1FormState extends ConsumerState<_Step1Form> {
                   ),
                   const SizedBox(width: 10),
                   Text(
-                    "Créer ma fiche",
+                    widget.modeEdition ? "Modifier ma fiche" : "Créer ma fiche",
                     style: GoogleFonts.spaceGrotesk(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
@@ -198,40 +223,41 @@ class _Step1FormState extends ConsumerState<_Step1Form> {
               ),
             ),
 
-            // Barre de progression 1/2
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.primary,
-                        borderRadius: BorderRadius.circular(3),
+            // Barre de progression 1/2 — masquée en mode édition (pas un wizard)
+            if (!widget.modeEdition)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.primary,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Container(
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: AppColors.border,
-                        borderRadius: BorderRadius.circular(3),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Container(
+                        height: 4,
+                        decoration: BoxDecoration(
+                          color: AppColors.border,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    "1/2",
-                    style: AppTypography.caption.copyWith(
-                      fontWeight: FontWeight.w700,
+                    const SizedBox(width: 8),
+                    Text(
+                      "1/2",
+                      style: AppTypography.caption.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
 
             // Formulaire
             Expanded(
@@ -410,8 +436,10 @@ class _Step1FormState extends ConsumerState<_Step1Form> {
                       ],
                       const SizedBox(height: 22),
                       PrimaryButton(
-                        label: "Continuer",
-                        trailingIcon: Symbols.arrow_forward,
+                        label: widget.modeEdition ? "Enregistrer" : "Continuer",
+                        trailingIcon: widget.modeEdition
+                            ? null
+                            : Symbols.arrow_forward,
                         isLoading: _isSubmitting,
                         onPressed: _submit,
                       ),

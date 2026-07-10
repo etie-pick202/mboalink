@@ -22,7 +22,8 @@ public class FicheGrossisteSpecification {
             String categorie,
             BigDecimal prixMin,
             BigDecimal prixMax,
-            Boolean certifie) {
+            Boolean certifie,
+            Boolean certifiePremium) {
 
         return (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
@@ -69,6 +70,10 @@ public class FicheGrossisteSpecification {
 
             if (Boolean.TRUE.equals(certifie)) {
                 predicates.add(cb.equal(root.get("statutVerification"), "VERIFIE"));
+            }
+
+            if (Boolean.TRUE.equals(certifiePremium)) {
+                predicates.add(cb.isTrue(root.get("certifiePremium")));
             }
 
             return cb.and(predicates.toArray(new Predicate[0]));

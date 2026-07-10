@@ -1,5 +1,6 @@
 package com.mboalink.payment.repository;
 
+import com.mboalink.auth.entity.Utilisateur;
 import com.mboalink.payment.entity.Recu;
 import com.mboalink.payment.entity.Transaction;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -47,8 +48,17 @@ public interface RecuRepository extends JpaRepository<Recu, UUID> {
     long count();
 
     /**
-     * Find recent receipts (for dashboard display)
+     * Find recent receipts globally (admin/statistiques uniquement — ne
+     * JAMAIS exposer à un utilisateur final : contient les reçus de tous).
      */
     @Query("SELECT r FROM Recu r ORDER BY r.creeLe DESC LIMIT :limit")
     List<Recu> findRecentReceipts(@Param("limit") int limit);
+
+    /**
+     * Reçus récents d'UN utilisateur donné (écran "Reçus & paiements").
+     * Le lien se fait via la transaction : Recu → Transaction → Utilisateur.
+     */
+    @Query("SELECT r FROM Recu r WHERE r.transaction.utilisateur = :utilisateur ORDER BY r.creeLe DESC LIMIT :limit")
+    List<Recu> findRecentReceiptsByUser(@Param("utilisateur") Utilisateur utilisateur,
+                                        @Param("limit") int limit);
 }

@@ -43,11 +43,20 @@ public class NotationService {
             throw new RuntimeException("Vous avez déjà noté ce grossiste");
         }
 
-        // Verify transaction if provided
+        // Verify transaction if provided — le frontend transmet l'ID interne
+        // de la transaction (même valeur que DeverrouillageCoordonnees
+        // .referenceTransaction), pas la référence externe Campay, qui n'est
+        // jamais connue du client.
         boolean transactionVerifiee = false;
         if (request.getReferenceTransaction() != null) {
-            Transaction transaction = transactionRepository.findByReferenceExterne(request.getReferenceTransaction())
-                    .orElse(null);
+            Transaction transaction = null;
+            try {
+                transaction = transactionRepository.findById(
+                        java.util.UUID.fromString(request.getReferenceTransaction())).orElse(null);
+            } catch (IllegalArgumentException ignored) {
+                transaction = transactionRepository.findByReferenceExterne(request.getReferenceTransaction())
+                        .orElse(null);
+            }
             if (transaction != null && "SUCCES".equals(transaction.getStatut())) {
                 transactionVerifiee = true;
             }

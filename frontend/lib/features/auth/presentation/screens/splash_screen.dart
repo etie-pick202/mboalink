@@ -9,6 +9,7 @@ import "../../../../core/widgets/app_logo.dart";
 import "../../domain/entities/user_role.dart";
 import "../providers/auth_providers.dart";
 import "../widgets/pulsing_dot.dart";
+import "biometric_prompt_screen.dart";
 
 /// Écran 01 · Splash — bouton "Démarrer" (pas un loader automatique).
 /// Au tap : vérifie une session persistée ; si trouvée, demande une
@@ -29,36 +30,47 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
     if (_isStarting) return;
     setState(() => _isStarting = true);
 
-    final session = await ref.read(sessionStorageProvider).read();
+    try {
+      final session = await ref.read(sessionStorageProvider).read();
 
-    if (session == null) {
-      await Future.delayed(const Duration(milliseconds: 900));
+      if (session == null) {
+        await Future.delayed(const Duration(milliseconds: 900));
+        if (!mounted) return;
+        context.go(AppRoutes.onboarding);
+        return;
+      }
+
       if (!mounted) return;
-      context.go(AppRoutes.onboarding);
-      return;
-    }
+      final authenticated = await requireBiometricConfirmation(
+        context,
+        ref,
+        reason: "Confirmez votre identité pour retrouver votre session.",
+        allowPasswordFallback: true,
+        passwordFallbackLabel: "Me connecter avec mon mot de passe",
+      );
 
-    final biometricsAvailable = await ref
-        .read(biometricServiceProvider)
-        .isAvailable;
-    var authenticated = true;
-    if (biometricsAvailable) {
-      authenticated = await ref.read(biometricServiceProvider).authenticate();
-    }
+      if (!mounted) return;
 
-    if (!mounted) return;
+      if (!authenticated) {
+        context.go(AppRoutes.login);
+        return;
+      }
 
-    if (!authenticated) {
+      ref.read(currentSessionProvider.notifier).state = session;
+      context.go(switch (session.role) {
+        UserRole.grossiste => AppRoutes.grossisteDashboard,
+        UserRole.admin => AppRoutes.adminDashboard,
+        UserRole.utilisateur => AppRoutes.home,
+      });
+    } catch (_) {
+      // Ne jamais laisser l'utilisateur bloqué sur l'animation de
+      // chargement — en cas d'erreur imprévue (stockage sécurisé
+      // indisponible, etc.), on retombe sur la connexion classique.
+      if (!mounted) return;
       context.go(AppRoutes.login);
-      return;
+    } finally {
+      if (mounted) setState(() => _isStarting = false);
     }
-
-    ref.read(currentSessionProvider.notifier).state = session;
-    context.go(
-      session.role == UserRole.grossiste
-          ? AppRoutes.grossisteDashboard
-          : AppRoutes.home,
-    );
   }
 
   @override
@@ -83,7 +95,9 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               Expanded(
                 child: Center(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: isTablet ? 480 : double.infinity),
+                    constraints: BoxConstraints(
+                      maxWidth: isTablet ? 480 : double.infinity,
+                    ),
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 32),
                       child: Column(
@@ -105,7 +119,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                               ),
                               children: const [
                                 TextSpan(text: "MboaLink"),
-                                TextSpan(text: ".", style: TextStyle(color: AppColors.accent)),
+                                TextSpan(
+                                  text: ".",
+                                  style: TextStyle(color: AppColors.accent),
+                                ),
                               ],
                             ),
                             textAlign: TextAlign.center,

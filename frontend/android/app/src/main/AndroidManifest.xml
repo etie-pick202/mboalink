@@ -42,6 +42,29 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+        <!-- Requis par url_launcher (Android 11+) pour ouvrir l'appel
+             téléphonique, l'email et WhatsApp depuis "Coordonnées débloquées". -->
+        <intent>
+            <action android:name="android.intent.action.DIAL"/>
+            <data android:scheme="tel"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https"/>
+        </intent>
     </queries>
+    <!-- Indispensable : sans cette permission, Android bloque tout accès
+         réseau (API MboaLink) au niveau du système, silencieusement. -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Requis par image_picker pour la capture photo (pièce d'identité,
+         logo boutique) via ImageSource.camera. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
 </manifest>

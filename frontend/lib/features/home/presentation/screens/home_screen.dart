@@ -1,15 +1,24 @@
 import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:go_router/go_router.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
 
+import "../../../../core/constants/app_routes.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/app_error_view.dart";
+import "../../../../core/widgets/app_loader.dart";
+import "../../../auth/presentation/providers/auth_providers.dart";
+import "../../domain/entities/grossiste_resume.dart";
+import "../providers/home_providers.dart";
 import "../widgets/client_nav_bar.dart";
 
 /// Écran 06 · Accueil Client — conforme à la maquette MboaLink.
 /// Navbar Client réelle (Accueil | Recherche | Débloqués | Profil).
-/// Le fil de recommandation réel (Workflow B) sera branché plus tard.
-class HomeScreen extends StatelessWidget {
+/// Fil d'actualité et catégories branchés sur GET /search/fil-actualite
+/// et GET /search/categories.
+class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   void _comingSoon(BuildContext context, String feature) {
@@ -19,9 +28,12 @@ class HomeScreen extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.shortestSide >= 600;
+    final filAsync = ref.watch(filActualiteProvider);
+    final categoriesAsync = ref.watch(categoriesProvider);
+    final prenom = ref.watch(currentSessionProvider)?.prenom;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceAlt,
@@ -48,7 +60,9 @@ class HomeScreen extends StatelessWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  "Bonjour 👋",
+                                  (prenom != null && prenom.isNotEmpty)
+                                      ? "Bonjour, $prenom"
+                                      : "Bonjour",
                                   style: AppTypography.caption,
                                 ),
                                 const SizedBox(height: 2),
@@ -83,7 +97,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                             GestureDetector(
                               onTap: () =>
-                                  _comingSoon(context, "Notifications"),
+                                  context.push(AppRoutes.notifications),
                               child: Stack(
                                 clipBehavior: Clip.none,
                                 children: [
@@ -103,22 +117,25 @@ class HomeScreen extends StatelessWidget {
                                       color: AppColors.textPrimary,
                                     ),
                                   ),
-                                  Positioned(
-                                    top: -2,
-                                    right: -2,
-                                    child: Container(
-                                      width: 9,
-                                      height: 9,
-                                      decoration: BoxDecoration(
-                                        color: AppColors.error,
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: AppColors.surfaceAlt,
-                                          width: 2,
+                                  if ((ref.watch(nonLuesCountProvider).value ??
+                                          0) >
+                                      0)
+                                    Positioned(
+                                      top: -2,
+                                      right: -2,
+                                      child: Container(
+                                        width: 9,
+                                        height: 9,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.error,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: AppColors.surfaceAlt,
+                                            width: 2,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
                                 ],
                               ),
                             ),
@@ -128,7 +145,7 @@ class HomeScreen extends StatelessWidget {
 
                         // Barre recherche
                         GestureDetector(
-                          onTap: () => _comingSoon(context, "Recherche"),
+                          onTap: () => context.push(AppRoutes.clientRecherche),
                           child: Container(
                             height: 46,
                             padding: const EdgeInsets.symmetric(horizontal: 14),
@@ -160,46 +177,24 @@ class HomeScreen extends StatelessWidget {
                         // Catégories
                         SizedBox(
                           height: 78,
-                          child: ListView(
-                            scrollDirection: Axis.horizontal,
-                            children: [
-                              _CategoryChip(
-                                icon: Symbols.rice_bowl,
-                                label: "Vivres",
+                          child: categoriesAsync.when(
+                            loading: () =>
+                                const Center(child: AppLoader(size: 20)),
+                            error: (_, _) => const SizedBox.shrink(),
+                            data: (categories) => ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: categories.length,
+                              itemBuilder: (ctx, i) => _CategoryChip(
+                                icon: Symbols.category,
+                                label: categories[i],
                                 bg: AppColors.successBg,
                                 fg: AppColors.primary,
-                                onTap: () => _comingSoon(context, "Vivres"),
+                                onTap: () => context.push(
+                                  AppRoutes.clientRecherche,
+                                  extra: categories[i],
+                                ),
                               ),
-                              _CategoryChip(
-                                icon: Symbols.checkroom,
-                                label: "Textile",
-                                bg: AppColors.warningBg,
-                                fg: AppColors.warning,
-                                onTap: () => _comingSoon(context, "Textile"),
-                              ),
-                              _CategoryChip(
-                                icon: Symbols.spa,
-                                label: "Cosméto",
-                                bg: AppColors.successBg,
-                                fg: AppColors.primary,
-                                onTap: () => _comingSoon(context, "Cosméto"),
-                              ),
-                              _CategoryChip(
-                                icon: Symbols.devices,
-                                label: "Électro",
-                                bg: AppColors.warningBg,
-                                fg: AppColors.warning,
-                                onTap: () => _comingSoon(context, "Électro"),
-                              ),
-                              _CategoryChip(
-                                icon: Symbols.build,
-                                label: "Quincail.",
-                                bg: AppColors.surfaceAlt,
-                                fg: AppColors.textMuted,
-                                onTap: () =>
-                                    _comingSoon(context, "Quincaillerie"),
-                              ),
-                            ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -224,31 +219,40 @@ class HomeScreen extends StatelessWidget {
                           ],
                         ),
                         const SizedBox(height: 10),
-                        _WholesalerCard(
-                          nom: "Ets Tchana & Fils",
-                          verifie: true,
-                          description: "Riz, huile, sucre · Mboppi",
-                          note: "4.8",
-                          distance: "1,2 km",
-                          onTap: () => _comingSoon(context, "Fiche grossiste"),
-                        ),
-                        const SizedBox(height: 10),
-                        _WholesalerCard(
-                          nom: "Sané Cosmetics",
-                          verifie: false,
-                          description: "Cosmétiques en gros · Akwa",
-                          note: "4.9",
-                          distance: "2,6 km",
-                          onTap: () => _comingSoon(context, "Fiche grossiste"),
-                        ),
-                        const SizedBox(height: 10),
-                        _WholesalerCard(
-                          nom: "Kana Distribution",
-                          verifie: true,
-                          description: "Hygiène & beauté · Mvog-Mbi",
-                          note: "4.7",
-                          distance: "3,1 km",
-                          onTap: () => _comingSoon(context, "Fiche grossiste"),
+                        filAsync.when(
+                          loading: () => const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 20),
+                            child: Center(child: AppLoader()),
+                          ),
+                          error: (error, _) => AppErrorView(
+                            error: error,
+                            fallbackMessage:
+                                "Impossible de charger le fil d'actualité.",
+                            onRetry: () => ref.invalidate(filActualiteProvider),
+                          ),
+                          data: (fil) => fil.resultats.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 20,
+                                  ),
+                                  child: Text(
+                                    "Aucune recommandation pour l'instant.",
+                                    style: AppTypography.bodySmall,
+                                  ),
+                                )
+                              : Column(
+                                  children: [
+                                    for (final g in fil.resultats) ...[
+                                      _WholesalerCard(
+                                        resume: g,
+                                        onTap: () => context.push(
+                                          "${AppRoutes.fichePublique}/${g.id}",
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                    ],
+                                  ],
+                                ),
                         ),
                       ],
                     ),
@@ -312,20 +316,9 @@ class _CategoryChip extends StatelessWidget {
 }
 
 class _WholesalerCard extends StatelessWidget {
-  const _WholesalerCard({
-    required this.nom,
-    required this.verifie,
-    required this.description,
-    required this.note,
-    required this.distance,
-    required this.onTap,
-  });
+  const _WholesalerCard({required this.resume, required this.onTap});
 
-  final String nom;
-  final bool verifie;
-  final String description;
-  final String note;
-  final String distance;
+  final GrossisteResume resume;
   final VoidCallback onTap;
 
   @override
@@ -351,11 +344,22 @@ class _WholesalerCard extends StatelessWidget {
                   color: AppColors.successBg,
                   borderRadius: BorderRadius.circular(13),
                 ),
-                child: const Icon(
-                  Symbols.storefront,
-                  size: 26,
-                  color: AppColors.primary,
-                ),
+                child:
+                    resume.logoUrl != null &&
+                        resume.logoUrl!.isNotEmpty &&
+                        !resume.logoUrl!.startsWith("mock://")
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(13),
+                        child: Image.network(
+                          resume.logoUrl!,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const Icon(
+                        Symbols.storefront,
+                        size: 26,
+                        color: AppColors.primary,
+                      ),
               ),
               const SizedBox(width: 11),
               Expanded(
@@ -366,14 +370,14 @@ class _WholesalerCard extends StatelessWidget {
                       children: [
                         Flexible(
                           child: Text(
-                            nom,
+                            resume.nomEntreprise,
                             style: AppTypography.bodyLarge.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        if (verifie) ...[
+                        if (resume.certifie) ...[
                           const SizedBox(width: 4),
                           const Icon(
                             Symbols.verified,
@@ -381,10 +385,25 @@ class _WholesalerCard extends StatelessWidget {
                             color: Color(0xFF1D9BF0),
                           ),
                         ],
+                        if (resume.certifiePremium) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Symbols.workspace_premium,
+                            size: 15,
+                            fill: 1,
+                            color: AppColors.accent,
+                          ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 1),
-                    Text(description, style: AppTypography.caption),
+                    Text(
+                      [
+                        resume.secteurActivite,
+                        resume.quartier ?? resume.ville,
+                      ].whereType<String>().join(" · "),
+                      style: AppTypography.caption,
+                    ),
                     const SizedBox(height: 5),
                     Row(
                       children: [
@@ -395,29 +414,31 @@ class _WholesalerCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 2),
                         Text(
-                          note,
+                          resume.noteMoyenne?.toStringAsFixed(1) ?? "—",
                           style: AppTypography.bodySmall.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 7,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.successBg,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            distance,
-                            style: AppTypography.caption.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: AppColors.primary,
+                        if (resume.distanceKm != null) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 7,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppColors.successBg,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              "${resume.distanceKm!.toStringAsFixed(1)} km",
+                              style: AppTypography.caption.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primary,
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ),
                   ],

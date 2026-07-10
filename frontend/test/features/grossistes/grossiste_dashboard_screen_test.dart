@@ -10,9 +10,12 @@ import "package:mboalink/features/grossiste/domain/entities/document_statut.dart
 import "package:mboalink/features/grossiste/domain/entities/document_type.dart";
 import "package:mboalink/features/grossiste/domain/entities/document_verification.dart";
 import "package:mboalink/features/grossiste/domain/entities/fiche_grossiste.dart";
+import "package:mboalink/features/grossiste/domain/entities/fiche_statistiques.dart";
 import "package:mboalink/features/grossiste/domain/entities/fiche_verification_statut.dart";
 import "package:mboalink/features/grossiste/presentation/providers/grossiste_providers.dart";
 import "package:mboalink/features/grossiste/presentation/screens/grossiste_dashboard_screen.dart";
+import "package:mboalink/features/payment/domain/entities/abonnement.dart";
+import "package:mboalink/features/payment/presentation/providers/payment_providers.dart";
 
 /// Tests du tableau de bord grossiste — 6 états couverts :
 ///   1. nonSoumise          → fiche vide, bouton "Créer ma fiche"
@@ -68,6 +71,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          monAbonnementProvider.overrideWith((ref) async => null),
           maFicheProvider.overrideWith(
             (ref) async => const FicheGrossiste(
               id: "f1",
@@ -97,6 +101,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          monAbonnementProvider.overrideWith((ref) async => null),
           maFicheProvider.overrideWith(
             (ref) async => const FicheGrossiste(
               id: "f1",
@@ -127,6 +132,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            monAbonnementProvider.overrideWith((ref) async => null),
             maFicheProvider.overrideWith(
               (ref) async => const FicheGrossiste(
                 id: "f1",
@@ -170,6 +176,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          monAbonnementProvider.overrideWith((ref) async => null),
           maFicheProvider.overrideWith(
             (ref) async => const FicheGrossiste(
               id: "f1",
@@ -200,6 +207,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            monAbonnementProvider.overrideWith((ref) async => null),
             maFicheProvider.overrideWith(
               (ref) async => const FicheGrossiste(
                 id: "f1",
@@ -231,6 +239,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          monAbonnementProvider.overrideWith((ref) async => null),
           maFicheProvider.overrideWith(
             (ref) async => const FicheGrossiste(
               id: "f1",
@@ -262,6 +271,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            monAbonnementProvider.overrideWith((ref) async => null),
             maFicheProvider.overrideWith(
               (ref) async => const FicheGrossiste(
                 id: "f1",
@@ -296,6 +306,17 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          monAbonnementProvider.overrideWith(
+            (ref) async => Abonnement(
+              id: "a1",
+              typeAbonnement: "MENSUEL",
+              montant: 15000,
+              dateDebut: DateTime(2026, 6, 12),
+              dateFin: DateTime(2026, 7, 12),
+              statut: StatutAbonnement.actif,
+              renouvellementAuto: false,
+            ),
+          ),
           maFicheProvider.overrideWith(
             (ref) async => const FicheGrossiste(
               id: "f1",
@@ -304,6 +325,13 @@ void main() {
               nomEntreprise: "Ets Tchana & Fils",
               secteurActivite: "Alimentation",
               ville: "Douala",
+            ),
+          ),
+          ficheStatistiquesProvider.overrideWith(
+            (ref, ficheId) async => const FicheStatistiques(
+              vuesMoisEnCours: 2412,
+              contactsDebloques: 86,
+              vuesParJour: [4, 9, 6, 12, 8, 15, 18],
             ),
           ),
         ],
@@ -315,11 +343,10 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text("2 412"), findsOneWidget);
+    expect(find.text("2412"), findsOneWidget);
     expect(find.text("86"), findsOneWidget);
-    expect(find.text("Plan Pro · 15 000 F/mois"), findsOneWidget);
+    expect(find.text("Plan mensuel · 15000 F"), findsOneWidget);
     expect(find.text("Vues · 7 derniers jours"), findsOneWidget);
-    expect(find.text("+18%"), findsOneWidget);
     expect(find.text("Dashboard"), findsOneWidget);
     expect(find.text("Boutique"), findsOneWidget);
     expect(find.text("Fiche"), findsOneWidget);
@@ -334,6 +361,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
+            monAbonnementProvider.overrideWith((ref) async => null),
             maFicheProvider.overrideWith(
               (ref) async => const FicheGrossiste(
                 id: "f1",
@@ -377,7 +405,10 @@ void main() {
 
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [maFicheProvider.overrideWith((ref) => completer.future)],
+        overrides: [
+          monAbonnementProvider.overrideWith((ref) async => null),
+          maFicheProvider.overrideWith((ref) => completer.future),
+        ],
         child: MaterialApp.router(
           theme: AppTheme.light,
           routerConfig: buildRouter(),
@@ -395,6 +426,7 @@ void main() {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          monAbonnementProvider.overrideWith((ref) async => null),
           maFicheProvider.overrideWith(
             (ref) async => throw Exception("Connexion impossible"),
           ),

@@ -9,6 +9,7 @@ import "../../../../core/constants/app_routes.dart";
 import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/app_error_view.dart";
 import "../../../../core/widgets/app_loader.dart";
 import "../../../../core/widgets/primary_button.dart";
 import "../../domain/entities/document_statut.dart";
@@ -39,13 +40,10 @@ class GrossisteFicheStep2Screen extends ConsumerWidget {
       body: SafeArea(
         child: documentsAsync.when(
           loading: () => const Center(child: AppLoader()),
-          error: (error, _) => Center(
-            child: Text(
-              error is AppException
-                  ? error.message
-                  : "Impossible de charger les documents.",
-              style: AppTypography.bodyMedium,
-            ),
+          error: (error, _) => AppErrorView(
+            error: error,
+            fallbackMessage: "Impossible de charger les documents.",
+            onRetry: () => ref.invalidate(ficheDocumentsProvider(ficheId)),
           ),
           data: (documents) =>
               _Step2Body(ficheId: ficheId, existingDocuments: documents),
@@ -108,13 +106,18 @@ class _Step2BodyState extends ConsumerState<_Step2Body> {
 
     try {
       for (final entry in _pickedFiles.entries) {
-        // TODO(backend): urlDocument factice — remplacer par vraie URL d'upload.
+        final file = entry.value;
+        final bytes = await file.readAsBytes();
+        final extension = file.path.contains(".")
+            ? file.path.split(".").last
+            : "jpg";
         await ref
             .read(grossisteRepositoryProvider)
-            .ajouterDocument(
+            .uploaderDocument(
               ficheId: widget.ficheId,
               typeDocument: entry.key.apiValue,
-              urlDocument: entry.value.path,
+              extension: extension,
+              bytes: bytes,
             );
       }
       ref.invalidate(ficheDocumentsProvider(widget.ficheId));

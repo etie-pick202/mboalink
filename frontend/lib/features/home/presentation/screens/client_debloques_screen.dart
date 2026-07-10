@@ -1,37 +1,27 @@
 import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
+import "package:go_router/go_router.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
+import "package:url_launcher/url_launcher.dart";
 
+import "../../../../core/constants/app_routes.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../domain/entities/contact_debloque.dart";
+import "../providers/home_providers.dart";
 import "../widgets/client_nav_bar.dart";
 
-/// Onglet "Débloqués" (index 2) — liste des grossistes dont le client
-/// a payé pour voir les coordonnées (MoMo / OM, conforme à la revue).
-/// Données statiques en Workflow A ; flux réel branché en Workflow B
-/// (endpoint GET /utilisateurs/me/deverrouillages).
-class ClientDeblocagesScreen extends StatelessWidget {
+/// Onglet "Débloqués" (index 2) — liste réelle des grossistes dont le
+/// client a payé pour voir les coordonnées (GET /grossistes/mes-deverrouillages).
+class ClientDeblocagesScreen extends ConsumerWidget {
   const ClientDeblocagesScreen({super.key});
 
-  static const _mockDebloques = [
-    (
-      nom: "Ets Tchana & Fils",
-      secteur: "Alimentation · Douala",
-      tel: "+237 699 112 233",
-      date: "3 juin 2026",
-    ),
-    (
-      nom: "Kana Distribution",
-      secteur: "Cosmétique · Yaoundé",
-      tel: "+237 677 001 122",
-      date: "18 mai 2026",
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.shortestSide >= 600;
+    final contacts = ref.watch(mesDeverrouillagesProvider);
 
     return Scaffold(
       backgroundColor: AppColors.surfaceAlt,
@@ -67,7 +57,7 @@ class ClientDeblocagesScreen extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
-                          "${_mockDebloques.length}",
+                          "${contacts.value?.length ?? 0}",
                           style: AppTypography.bodySmall.copyWith(
                             fontWeight: FontWeight.w700,
                             color: AppColors.primary,
@@ -77,54 +67,55 @@ class ClientDeblocagesScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-                _mockDebloques.isEmpty
-                    ? Expanded(
-                        child: Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(
-                                Symbols.lock_open,
-                                size: 42,
-                                color: AppColors.textFaint,
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                "Aucun contact débloqué",
-                                style: AppTypography.bodyMedium.copyWith(
-                                  color: AppColors.textMuted,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 32,
-                                ),
-                                child: Text(
-                                  "Déverrouillez les coordonnées d'un grossiste via son profil (MoMo ou Orange Money).",
-                                  textAlign: TextAlign.center,
-                                  style: AppTypography.bodySmall,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    : Expanded(
-                        child: ListView.builder(
-                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                          itemCount: _mockDebloques.length,
-                          itemBuilder: (ctx, i) {
-                            final d = _mockDebloques[i];
-                            return _DebloqueTile(
-                              nom: d.nom,
-                              secteur: d.secteur,
-                              tel: d.tel,
-                              date: d.date,
-                            );
-                          },
-                        ),
+                Expanded(
+                  child: contacts.when(
+                    loading: () =>
+                        const Center(child: CircularProgressIndicator()),
+                    error: (_, _) => Center(
+                      child: Text(
+                        "Impossible de charger vos contacts débloqués.",
+                        style: AppTypography.bodySmall,
                       ),
+                    ),
+                    data: (liste) => liste.isEmpty
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Symbols.lock_open,
+                                  size: 42,
+                                  color: AppColors.textFaint,
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  "Aucun contact débloqué",
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    color: AppColors.textMuted,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 32,
+                                  ),
+                                  child: Text(
+                                    "Déverrouillez les coordonnées d'un grossiste via son profil (MoMo ou Orange Money).",
+                                    textAlign: TextAlign.center,
+                                    style: AppTypography.bodySmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+                            itemCount: liste.length,
+                            itemBuilder: (ctx, i) =>
+                                _DebloqueTile(contact: liste[i]),
+                          ),
+                  ),
+                ),
                 const ClientNavBar(activeIndex: 2),
               ],
             ),
@@ -136,22 +127,53 @@ class ClientDeblocagesScreen extends StatelessWidget {
 }
 
 class _DebloqueTile extends StatelessWidget {
-  const _DebloqueTile({
-    required this.nom,
-    required this.secteur,
-    required this.tel,
-    required this.date,
-  });
+  const _DebloqueTile({required this.contact});
 
-  final String nom;
-  final String secteur;
-  final String tel;
-  final String date;
+  final ContactDebloque contact;
 
-  void _comingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("$feature — bientôt disponible.")));
+  Future<void> _appeler(BuildContext context) async {
+    final tel = contact.telephoneProfessionnel;
+    if (tel == null) return;
+    final uri = Uri(scheme: "tel", path: tel);
+    final ok = await launchUrl(uri);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Impossible d'ouvrir l'application téléphone."),
+        ),
+      );
+    }
+  }
+
+  Future<void> _whatsapp(BuildContext context) async {
+    final tel = contact.telephoneProfessionnel;
+    if (tel == null) return;
+    final numero = tel.replaceAll(RegExp(r"[^0-9]"), "");
+    final uri = Uri.parse("https://wa.me/$numero");
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Impossible d'ouvrir WhatsApp.")),
+      );
+    }
+  }
+
+  String _formatDate(DateTime d) {
+    const mois = [
+      "janv.",
+      "févr.",
+      "mars",
+      "avr.",
+      "mai",
+      "juin",
+      "juil.",
+      "août",
+      "sept.",
+      "oct.",
+      "nov.",
+      "déc.",
+    ];
+    return "${d.day} ${mois[d.month - 1]} ${d.year}";
   }
 
   @override
@@ -176,11 +198,22 @@ class _DebloqueTile extends StatelessWidget {
                   color: AppColors.successBg,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(
-                  Symbols.storefront,
-                  size: 22,
-                  color: AppColors.primary,
-                ),
+                child:
+                    contact.logoUrl != null &&
+                        contact.logoUrl!.isNotEmpty &&
+                        !contact.logoUrl!.startsWith("mock://")
+                    ? ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          contact.logoUrl!,
+                          fit: BoxFit.cover,
+                        ),
+                      )
+                    : const Icon(
+                        Symbols.storefront,
+                        size: 22,
+                        color: AppColors.primary,
+                      ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -188,18 +221,40 @@ class _DebloqueTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      nom,
+                      contact.nomEntreprise,
                       style: GoogleFonts.spaceGrotesk(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.textPrimary,
                       ),
                     ),
-                    Text(secteur, style: AppTypography.caption),
+                    Text(
+                      [
+                        contact.secteurActivite,
+                        contact.ville,
+                      ].whereType<String>().join(" · "),
+                      style: AppTypography.caption,
+                    ),
                   ],
                 ),
               ),
-              Text("le $date", style: AppTypography.caption),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    "le ${_formatDate(contact.deverrouilleLe)}",
+                    style: AppTypography.caption,
+                  ),
+                  if (!contact.encoreValide)
+                    Text(
+                      "Expiré",
+                      style: AppTypography.caption.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                ],
+              ),
             ],
           ),
           const SizedBox(height: 10),
@@ -210,9 +265,11 @@ class _DebloqueTile extends StatelessWidget {
               Expanded(
                 child: _ContactBtn(
                   icon: Symbols.call,
-                  label: tel,
+                  label: contact.telephoneProfessionnel ?? "—",
                   color: AppColors.primary,
-                  onTap: () => _comingSoon(context, "Appel"),
+                  onTap: contact.telephoneProfessionnel == null
+                      ? null
+                      : () => _appeler(context),
                 ),
               ),
               const SizedBox(width: 8),
@@ -220,7 +277,23 @@ class _DebloqueTile extends StatelessWidget {
                 icon: Icons.message,
                 label: "WhatsApp",
                 color: const Color(0xFF25D366),
-                onTap: () => _comingSoon(context, "WhatsApp"),
+                onTap: contact.telephoneProfessionnel == null
+                    ? null
+                    : () => _whatsapp(context),
+              ),
+              const SizedBox(width: 8),
+              _ContactBtn(
+                icon: Symbols.star,
+                label: "Avis",
+                color: AppColors.accent,
+                onTap: () => context.push(
+                  AppRoutes.laisserAvis,
+                  extra: {
+                    "ficheId": contact.ficheGrossisteId,
+                    "nomEntreprise": contact.nomEntreprise,
+                    "referenceTransaction": contact.referenceTransaction,
+                  },
+                ),
               ),
             ],
           ),
@@ -241,7 +314,7 @@ class _ContactBtn extends StatelessWidget {
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {

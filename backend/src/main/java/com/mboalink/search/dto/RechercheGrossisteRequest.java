@@ -24,6 +24,9 @@ public class RechercheGrossisteRequest {
 
     private Boolean certifie;
 
+    /** Badge payant "certification premium" (distinct de "certifie" — gratuit). */
+    private Boolean certifiePremium;
+
     private Double latitudeUtilisateur;
 
     private Double longitudeUtilisateur;

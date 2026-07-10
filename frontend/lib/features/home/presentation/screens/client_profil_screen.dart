@@ -5,9 +5,14 @@ import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
 
 import "../../../../core/constants/app_routes.dart";
+import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/app_text_field.dart";
+import "../../../../core/widgets/contact_support_sheet.dart";
+import "../../../auth/domain/entities/auth_session.dart";
 import "../../../auth/presentation/providers/auth_providers.dart";
+import "../../../auth/presentation/screens/biometric_prompt_screen.dart";
 import "../widgets/client_nav_bar.dart";
 
 /// Écran 18 · Profil Client — conforme à la maquette MboaLink et à la
@@ -24,10 +29,27 @@ class ClientProfilScreen extends ConsumerStatefulWidget {
 class _ClientProfilScreenState extends ConsumerState<ClientProfilScreen> {
   bool _isLoggingOut = false;
 
-  void _comingSoon(String feature) {
-    ScaffoldMessenger.of(
+  Future<void> _modifierProfil(AuthSession? session) async {
+    final confirme = await requireBiometricConfirmation(
       context,
-    ).showSnackBar(SnackBar(content: Text("$feature — bientôt disponible.")));
+      ref,
+      reason: "Confirmez votre identité pour modifier votre profil.",
+    );
+    if (!confirme || !mounted) return;
+
+    final result = await showDialog<(String, String)>(
+      context: context,
+      builder: (ctx) => _ModifierProfilDialog(
+        nomInitial: session?.nom ?? "",
+        prenomInitial: session?.prenom ?? "",
+      ),
+    );
+    if (result == null || session == null) return;
+    final (nom, prenom) = result;
+    ref.read(currentSessionProvider.notifier).state = session.copyWith(
+      nom: nom,
+      prenom: prenom,
+    );
   }
 
   Future<void> _logout() async {
@@ -119,7 +141,7 @@ class _ClientProfilScreenState extends ConsumerState<ClientProfilScreen> {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () => _comingSoon("Modifier mon profil"),
+                                onTap: () => _modifierProfil(session),
                                 child: const Icon(
                                   Symbols.edit,
                                   size: 20,
@@ -137,18 +159,24 @@ class _ClientProfilScreenState extends ConsumerState<ClientProfilScreen> {
                             _MenuTile(
                               icon: Symbols.bookmark,
                               label: "Favoris",
-                              onTap: () => _comingSoon("Favoris"),
+                              onTap: () => context.push(AppRoutes.favoris),
                             ),
                             _MenuTile(
                               icon: Symbols.receipt_long,
                               label: "Reçus & paiements",
-                              onTap: () => _comingSoon("Reçus & paiements"),
+                              onTap: () => context.push(AppRoutes.recus),
                             ),
                             _MenuTile(
                               icon: Symbols.shield_person,
                               label: "Confidentialité & données",
                               onTap: () =>
-                                  _comingSoon("Confidentialité & données"),
+                                  context.push(AppRoutes.confidentialite),
+                            ),
+                            _MenuTile(
+                              icon: Symbols.password,
+                              label: "Changer mon mot de passe",
+                              onTap: () =>
+                                  context.push(AppRoutes.changerMotDePasse),
                               isLast: true,
                             ),
                           ],
@@ -162,20 +190,14 @@ class _ClientProfilScreenState extends ConsumerState<ClientProfilScreen> {
                               icon: Symbols.storefront,
                               label: "Devenir grossiste",
                               iconColor: AppColors.textMuted,
-                              onTap: () => _comingSoon("Devenir grossiste"),
-                            ),
-                            _MenuTile(
-                              icon: Symbols.swap_horiz,
-                              label: "Basculer vers un compte Grossiste",
-                              iconColor: AppColors.textMuted,
                               onTap: () =>
-                                  _comingSoon("Bascule Client ↔ Grossiste"),
+                                  context.push(AppRoutes.devenirGrossiste),
                             ),
                             _MenuTile(
                               icon: Symbols.support_agent,
                               label: "Contacter le service client",
                               iconColor: AppColors.textMuted,
-                              onTap: () => _comingSoon("Service client"),
+                              onTap: () => showContactSupportSheet(context),
                               isLast: true,
                             ),
                           ],
@@ -215,6 +237,107 @@ class _ClientProfilScreenState extends ConsumerState<ClientProfilScreen> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class _ModifierProfilDialog extends ConsumerStatefulWidget {
+  const _ModifierProfilDialog({
+    required this.nomInitial,
+    required this.prenomInitial,
+  });
+
+  final String nomInitial;
+  final String prenomInitial;
+
+  @override
+  ConsumerState<_ModifierProfilDialog> createState() =>
+      _ModifierProfilDialogState();
+}
+
+class _ModifierProfilDialogState extends ConsumerState<_ModifierProfilDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nom = TextEditingController(text: widget.nomInitial);
+  late final _prenom = TextEditingController(text: widget.prenomInitial);
+  bool _isSubmitting = false;
+  String? _erreur;
+
+  @override
+  void dispose() {
+    _nom.dispose();
+    _prenom.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _isSubmitting = true;
+      _erreur = null;
+    });
+    try {
+      await ref
+          .read(authRepositoryProvider)
+          .modifierProfil(nom: _nom.text.trim(), prenom: _prenom.text.trim());
+      if (!mounted) return;
+      Navigator.pop(context, (_nom.text.trim(), _prenom.text.trim()));
+    } on AppException catch (e) {
+      setState(() => _erreur = e.message);
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text("Modifier mon profil"),
+      content: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AppTextField(
+              label: "Prénom",
+              controller: _prenom,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? "Le prénom est obligatoire."
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            AppTextField(
+              label: "Nom",
+              controller: _nom,
+              validator: (v) => (v == null || v.trim().isEmpty)
+                  ? "Le nom est obligatoire."
+                  : null,
+            ),
+            if (_erreur != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _erreur!,
+                style: AppTypography.bodySmall.copyWith(color: AppColors.error),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Annuler"),
+        ),
+        TextButton(
+          onPressed: _isSubmitting ? null : _submit,
+          child: _isSubmitting
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text("Enregistrer"),
+        ),
+      ],
     );
   }
 }

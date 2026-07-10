@@ -1,24 +1,58 @@
 import "package:flutter/material.dart";
+import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:go_router/go_router.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
 
 import "../../../../core/constants/app_routes.dart";
+import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
 import "../../../../core/widgets/primary_button.dart";
+import "../providers/auth_providers.dart";
 
 /// Écran 05 · Consentement données — conforme à la maquette MboaLink.
-/// Écran purement informatif pour l'instant : la préférence de
-/// personnalisation n'est pas encore persistée côté backend (aucun
-/// endpoint dédié dans le domaine Auth actuel) — à brancher plus tard.
-class ConsentScreen extends StatelessWidget {
+/// Enregistre le choix de personnalisation via PUT /consentements —
+/// les conditions générales sont toujours acceptées (obligatoires pour
+/// utiliser l'app), seule la personnalisation (tracking/notifications/
+/// marketing) varie selon le bouton choisi.
+class ConsentScreen extends ConsumerStatefulWidget {
   const ConsentScreen({required this.isGrossiste, super.key});
 
   final bool isGrossiste;
 
-  void _continueTo(BuildContext context) {
-    context.go(isGrossiste ? AppRoutes.grossisteDashboard : AppRoutes.home);
+  @override
+  ConsumerState<ConsentScreen> createState() => _ConsentScreenState();
+}
+
+class _ConsentScreenState extends ConsumerState<ConsentScreen> {
+  bool _isSubmitting = false;
+
+  Future<void> _continueTo(
+    BuildContext context, {
+    required bool accepte,
+  }) async {
+    setState(() => _isSubmitting = true);
+    try {
+      await ref
+          .read(consentementRepositoryProvider)
+          .mettreAJour(
+            trackingAccepte: accepte,
+            notificationsAcceptees: accepte,
+            marketingAccepte: accepte,
+            conditionsAcceptees: true,
+            versionConditions: "1.0",
+          );
+    } on AppException catch (_) {
+      // Le consentement pourra être ajusté plus tard depuis le profil —
+      // on ne bloque pas l'accès à l'app si l'enregistrement échoue.
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+    if (!context.mounted) return;
+    context.go(
+      widget.isGrossiste ? AppRoutes.grossisteDashboard : AppRoutes.home,
+    );
   }
 
   @override
@@ -124,12 +158,15 @@ class ConsentScreen extends StatelessWidget {
                   const SizedBox(height: 28),
                   PrimaryButton(
                     label: "Accepter & continuer",
-                    onPressed: () => _continueTo(context),
+                    isLoading: _isSubmitting,
+                    onPressed: () => _continueTo(context, accepte: true),
                   ),
                   const SizedBox(height: 10),
                   Center(
                     child: TextButton(
-                      onPressed: () => _continueTo(context),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => _continueTo(context, accepte: false),
                       child: Text(
                         "Continuer sans personnalisation",
                         style: AppTypography.bodySmall.copyWith(

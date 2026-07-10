@@ -75,11 +75,11 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
       ref.read(currentSessionProvider.notifier).state = session;
       await ref.read(sessionStorageProvider).save(session);
       if (!mounted) return;
-      context.go(
-        session.role == UserRole.grossiste
-            ? AppRoutes.grossisteDashboard
-            : AppRoutes.home,
-      );
+      context.go(switch (session.role) {
+        UserRole.grossiste => AppRoutes.grossisteDashboard,
+        UserRole.admin => AppRoutes.adminDashboard,
+        UserRole.utilisateur => AppRoutes.home,
+      });
     } on AppException catch (e) {
       setState(() => _errorMessage = e.message);
     } finally {
@@ -234,7 +234,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                           label: "Google",
                           letter: "G",
                           letterColor: const Color(0xFFEA4335),
-                          onTap: () => _showComingSoon("Connexion Google"),
+                          enabled: false,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -243,7 +243,7 @@ class _LoginRegisterScreenState extends ConsumerState<LoginRegisterScreen> {
                           label: "Facebook",
                           letter: "f",
                           letterColor: const Color(0xFF1877F2),
-                          onTap: () => _showComingSoon("Connexion Facebook"),
+                          enabled: false,
                         ),
                       ),
                     ],
@@ -414,49 +414,60 @@ class _SocialButton extends StatelessWidget {
     required this.label,
     required this.letter,
     required this.letterColor,
-    required this.onTap,
+    this.enabled = true,
   });
 
   final String label;
   final String letter;
   final Color letterColor;
-  final VoidCallback onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: AppColors.surface,
-      borderRadius: BorderRadius.circular(13),
-      child: InkWell(
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: Material(
+        color: AppColors.surface,
         borderRadius: BorderRadius.circular(13),
-        onTap: onTap,
-        child: Container(
-          height: 48,
-          decoration: BoxDecoration(
-            border: Border.all(color: AppColors.border),
-            borderRadius: BorderRadius.circular(13),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                letter,
-                style: GoogleFonts.manrope(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: letterColor,
-                ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(13),
+          onTap: null,
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              border: Border.all(color: AppColors.border),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 6),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    letter,
+                    style: GoogleFonts.manrope(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w800,
+                      color: enabled ? letterColor : AppColors.textFaint,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Text(
+                      enabled ? label : "$label · bientôt",
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.manrope(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: enabled
+                            ? AppColors.textPrimary
+                            : AppColors.textFaint,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: GoogleFonts.manrope(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

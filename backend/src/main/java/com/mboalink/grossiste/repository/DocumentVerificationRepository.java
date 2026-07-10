@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 
@@ -15,4 +16,9 @@ public interface DocumentVerificationRepository extends JpaRepository<DocumentVe
 
     // Récupérer tous les documents d'une fiche donnée
     List<DocumentVerification> findByFicheGrossisteId(UUID ficheGrossisteId);
+
+    // Un seul document par (fiche, type) — sert à mettre à jour plutôt que
+    // dupliquer quand le grossiste renvoie un document déjà soumis.
+    Optional<DocumentVerification> findByFicheGrossisteIdAndTypeDocument(
+            UUID ficheGrossisteId, String typeDocument);
 }

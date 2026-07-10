@@ -2,6 +2,7 @@ package com.mboalink.grossiste.controller;
 
 import com.mboalink.auth.security.CurrentUser;
 import com.mboalink.grossiste.dto.CoordonneesResponse;
+import com.mboalink.grossiste.dto.DeverrouillageHistoriqueResponse;
 import com.mboalink.grossiste.dto.DeverrouillerRequest;
 import com.mboalink.grossiste.service.DeverrouillageService;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -36,5 +38,13 @@ public class DeverrouillageController {
         boolean deverrouille = deverrouillageService.aDejaDeverrouille(
                 CurrentUser.getId(), ficheId);
         return ResponseEntity.ok(Map.of("deverrouille", deverrouille));
+    }
+
+    // GET /api/v1/grossistes/mes-deverrouillages  → écran "Contacts débloqués"
+    // (chemin littéral, prioritaire sur /{ficheId} dans le routage Spring)
+    @GetMapping("/mes-deverrouillages")
+    public ResponseEntity<List<DeverrouillageHistoriqueResponse>> mesDeverrouillages() {
+        return ResponseEntity.ok(
+                deverrouillageService.listerMesDeverrouillages(CurrentUser.getId()));
     }
 }

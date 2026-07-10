@@ -20,6 +20,7 @@ public class OtpService {
 
     private final OtpCodeRepository otpCodeRepository;
     private final EmailService emailService;
+    private final SmsService smsService;
 
     @Value("${otp.mode:MOCK}")
     private String otpMode;
@@ -72,19 +73,23 @@ public class OtpService {
         };
     }
 
+    /**
+     * Le canal (email/SMS) est déterminé par la forme de la cible, pas
+     * par otpMode : un email part par email, un numéro part par SMS —
+     * même convention que trouverParCible/trouverParIdentifiant dans
+     * AuthService. Ça permet à un même compte de recevoir son premier
+     * code par email (par défaut) puis, sur demande, un renvoi par SMS
+     * s'il a enregistré un numéro de téléphone — voir OtpScreen côté app.
+     */
     private void envoyer(String cible, String code, TypeOtp type) {
-        switch (otpMode.toUpperCase()) {
-            case "MOCK"  -> log.warn("[OTP MOCK] Code pour {} ({}) : {}", cible, type, code);
-            case "EMAIL" -> emailService.envoyerOtp(cible, code, type);
-            case "SMS"   -> envoyerSms(cible, code);
-            default      -> log.error("Mode OTP inconnu : {}", otpMode);
+        if ("MOCK".equalsIgnoreCase(otpMode)) {
+            log.warn("[OTP MOCK] Code pour {} ({}) : {}", cible, type, code);
+            return;
         }
-    }
-
-    private void envoyerSms(String telephone, String code) {
-        // TODO: brancher MTN MoMo API ou Orange API
-        log.warn("[OTP SMS] Non implémenté — téléphone : {} code : {}", telephone, code);
-        throw new UnsupportedOperationException(
-                "Le mode SMS n'est pas encore configuré. Utilisez EMAIL ou MOCK.");
+        if (cible.contains("@")) {
+            emailService.envoyerOtp(cible, code, type);
+        } else {
+            smsService.envoyerOtp(cible, code, type);
+        }
     }
 }

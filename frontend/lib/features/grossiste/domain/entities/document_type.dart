@@ -1,18 +1,16 @@
 /// Types de documents attendus pour la vérification d'une fiche
 /// grossiste — repris tels quels de la maquette (écran 22).
-/// TODO(backend): aligner ces valeurs avec celles réellement acceptées
-/// par l'API une fois la route de création/documents stabilisée côté
-/// backend (divergence actuelle entre le commentaire de l'entité
-/// DocumentVerification et les exemples testés dans Postman).
+/// Valeurs alignées avec DocumentVerification.typeDocument côté backend
+/// (REGISTRE_COMMERCE | CNI | PHOTO_LOCAL | AUTRE).
 enum DocumentType {
   rccm,
   cni,
   photoLocal;
 
   String get apiValue => switch (this) {
-    DocumentType.rccm => "RCCM",
+    DocumentType.rccm => "REGISTRE_COMMERCE",
     DocumentType.cni => "CNI",
-    DocumentType.photoLocal => "photolocal",
+    DocumentType.photoLocal => "PHOTO_LOCAL",
   };
 
   String get label => switch (this) {
@@ -23,6 +21,7 @@ enum DocumentType {
 
   static DocumentType fromApi(String value) {
     switch (value.toUpperCase()) {
+      case "REGISTRE_COMMERCE":
       case "RCCM":
         return DocumentType.rccm;
       case "CNI":

@@ -22,14 +22,15 @@ class AuthRemoteDatasource implements AuthDatasource {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   }) async {
-    // telephone n'est PAS envoyé — non supporté par le backend v1.
     final response = await _post("/auth/inscription", {
       "nom": nom,
       "prenom": prenom,
       "email": email,
       "motDePasse": motDePasse,
       "role": role,
+      if (telephone != null && telephone.isNotEmpty) "telephone": telephone,
     });
     return RegistrationResult(
       utilisateurId: response["utilisateurId"] as String? ?? "",
@@ -133,6 +134,69 @@ class AuthRemoteDatasource implements AuthDatasource {
       "codeOtp": codeOtp,
       "nouveauMotDePasse": nouveauMotDePasse,
     });
+  }
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() async {
+    final response = await _post("/auth/redevenir-utilisateur", const {});
+    return AuthSession(
+      accessToken: response["accessToken"] as String,
+      refreshToken: response["refreshToken"] as String? ?? "",
+      role: UserRole.fromApi(response["role"] as String? ?? "UTILISATEUR"),
+      emailVerifie: response["emailVerifie"] as bool? ?? true,
+      userId: response["utilisateurId"] as String?,
+      nom: response["nom"] as String?,
+      prenom: response["prenom"] as String?,
+      email: response["email"] as String?,
+    );
+  }
+
+  @override
+  Future<void> modifierProfil({
+    required String nom,
+    required String prenom,
+  }) async {
+    try {
+      await _dio.put<Map<String, dynamic>>(
+        "/profil",
+        data: {"nom": nom, "prenom": prenom},
+      );
+    } on DioException catch (e) {
+      throw _toAppException(e);
+    }
+  }
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
+    required String nouveauMotDePasse,
+  }) async {
+    try {
+      await _dio.put<Map<String, dynamic>>(
+        "/auth/mot-de-passe",
+        data: {
+          "ancienMotDePasse": ancienMotDePasse,
+          "nouveauMotDePasse": nouveauMotDePasse,
+        },
+      );
+    } on DioException catch (e) {
+      throw _toAppException(e);
+    }
+  }
+
+  @override
+  Future<AuthSession> devenirGrossiste() async {
+    final response = await _post("/auth/devenir-grossiste", const {});
+    return AuthSession(
+      accessToken: response["accessToken"] as String,
+      refreshToken: response["refreshToken"] as String? ?? "",
+      role: UserRole.fromApi(response["role"] as String? ?? "GROSSISTE"),
+      emailVerifie: response["emailVerifie"] as bool? ?? true,
+      userId: response["utilisateurId"] as String?,
+      nom: response["nom"] as String?,
+      prenom: response["prenom"] as String?,
+      email: response["email"] as String?,
+    );
   }
 
   // ── Helper ─────────────────────────────────────────────────────────────

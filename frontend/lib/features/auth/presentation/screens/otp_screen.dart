@@ -17,13 +17,27 @@ import "../providers/auth_providers.dart";
 
 /// Écran 04 · Vérification OTP — conforme à la maquette MboaLink.
 /// Code à 6 chiffres aligné avec le backend.
-/// Le role est passé explicitement car la réponse backend /auth/verifier-otp
-/// ne le contient pas — on utilise isGrossiste du contexte d'inscription.
+///
+/// Canal par défaut : email (déjà envoyé automatiquement par
+/// POST /auth/inscription). Si un numéro de téléphone a été renseigné à
+/// l'inscription, l'utilisateur peut choisir de recevoir le code par SMS
+/// à la place — le renvoi cible alors le téléphone avec
+/// type=INSCRIPTION_SMS, et toute vérification/renvoi suivant reste sur
+/// ce canal jusqu'à ce qu'il en change à nouveau.
 class OtpScreen extends ConsumerStatefulWidget {
-  const OtpScreen({required this.cible, required this.isGrossiste, super.key});
+  const OtpScreen({
+    required this.cible,
+    required this.isGrossiste,
+    this.telephone,
+    super.key,
+  });
 
   final String cible;
   final bool isGrossiste;
+
+  /// Numéro enregistré à l'inscription, s'il y en a un — conditionne
+  /// l'affichage du choix "Recevoir par SMS".
+  final String? telephone;
 
   static const _codeLength = 6;
   static const _resendDelay = Duration(seconds: 60);
@@ -36,10 +50,19 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   String _code = "";
   bool _isVerifying = false;
   bool _isResending = false;
+  bool _isSwitchingChannel = false;
   String? _errorMessage;
+
+  /// Canal actif — commence sur l'email (déjà envoyé à l'inscription).
+  late String _cibleActive = widget.cible;
+  String _typeActif = "INSCRIPTION_EMAIL";
 
   Timer? _timer;
   Duration _remaining = OtpScreen._resendDelay;
+
+  bool get _smsDisponible =>
+      widget.telephone != null && widget.telephone!.isNotEmpty;
+  bool get _surSms => _typeActif == "INSCRIPTION_SMS";
 
   @override
   void initState() {
@@ -86,9 +109,9 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       final session = await ref
           .read(authRepositoryProvider)
           .verifierOtp(
-            cible: widget.cible,
+            cible: _cibleActive,
             code: code,
-            type: "INSCRIPTION_EMAIL",
+            type: _typeActif,
             role: role,
           );
       ref.read(currentSessionProvider.notifier).state = session;
@@ -113,12 +136,39 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     try {
       await ref
           .read(authRepositoryProvider)
-          .renvoyerOtp(cible: widget.cible, type: "INSCRIPTION_EMAIL");
+          .renvoyerOtp(cible: _cibleActive, type: _typeActif);
       _startCountdown();
     } on AppException catch (e) {
       setState(() => _errorMessage = e.message);
     } finally {
       if (mounted) setState(() => _isResending = false);
+    }
+  }
+
+  /// Bascule le canal actif (email ↔ SMS) et déclenche immédiatement
+  /// l'envoi d'un nouveau code sur ce canal.
+  Future<void> _changerDeCanal() async {
+    final nouvelleCible = _surSms ? widget.cible : widget.telephone!;
+    final nouveauType = _surSms ? "INSCRIPTION_EMAIL" : "INSCRIPTION_SMS";
+
+    setState(() {
+      _isSwitchingChannel = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref
+          .read(authRepositoryProvider)
+          .renvoyerOtp(cible: nouvelleCible, type: nouveauType);
+      setState(() {
+        _cibleActive = nouvelleCible;
+        _typeActif = nouveauType;
+        _code = "";
+      });
+      _startCountdown();
+    } on AppException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } finally {
+      if (mounted) setState(() => _isSwitchingChannel = false);
     }
   }
 
@@ -149,8 +199,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       color: AppColors.successBg,
                       borderRadius: BorderRadius.circular(18),
                     ),
-                    child: const Icon(
-                      Symbols.sms,
+                    child: Icon(
+                      _surSms ? Symbols.sms : Symbols.mail,
                       size: 32,
                       color: AppColors.primary,
                     ),
@@ -172,11 +222,13 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         height: 1.55,
                       ),
                       children: [
-                        const TextSpan(
-                          text: "Entrez le code à 6 chiffres envoyé à\n",
+                        TextSpan(
+                          text: _surSms
+                              ? "Entrez le code à 6 chiffres envoyé par SMS au\n"
+                              : "Entrez le code à 6 chiffres envoyé à\n",
                         ),
                         TextSpan(
-                          text: widget.cible,
+                          text: _cibleActive,
                           style: const TextStyle(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w700,
@@ -185,8 +237,37 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                       ],
                     ),
                   ),
+                  if (_smsDisponible) ...[
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: _isSwitchingChannel ? null : _changerDeCanal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _surSms ? Symbols.mail : Symbols.sms,
+                            size: 16,
+                            color: AppColors.primary,
+                          ),
+                          const SizedBox(width: 5),
+                          Text(
+                            _isSwitchingChannel
+                                ? "Envoi en cours…"
+                                : _surSms
+                                ? "Recevoir par email à la place"
+                                : "Recevoir par SMS à la place",
+                            style: AppTypography.bodySmall.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 28),
                   OtpCodeInput(
+                    key: ValueKey(_cibleActive),
                     length: OtpScreen._codeLength,
                     onChanged: (value) => setState(() => _code = value),
                     onCompleted: _verify,

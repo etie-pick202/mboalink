@@ -1,3 +1,4 @@
+import "../../../../core/errors/app_exception.dart";
 import "../models/document_verification_model.dart";
 import "../models/fiche_grossiste_model.dart";
 import "../models/produit_grossiste_model.dart";
@@ -187,7 +188,7 @@ class GrossisteMockDatasource implements GrossisteDatasource {
   };
 
   @override
-  Future<FicheGrossisteModel> maFiche({String? emailCompte}) async {
+  Future<FicheGrossisteModel?> maFiche({String? emailCompte}) async {
     await Future.delayed(_delay);
     final ficheId = _ficheIdByEmail[emailCompte];
     if (ficheId != null) return _fichesById[ficheId]!;
@@ -198,6 +199,28 @@ class GrossisteMockDatasource implements GrossisteDatasource {
     );
     _fichesById[newId] = fiche;
     if (emailCompte != null) _ficheIdByEmail[emailCompte] = newId;
+    return fiche;
+  }
+
+  @override
+  Future<FicheGrossisteModel> creerFiche(Map<String, dynamic> donnees) async {
+    await Future.delayed(_delay);
+    final newId = "fiche-auto-${++_sequence}";
+    final fiche = FicheGrossisteModel(
+      id: newId,
+      statutVerification: "EN_ATTENTE",
+      nomEntreprise: donnees["nomEntreprise"] as String?,
+      description: donnees["description"] as String?,
+      secteurActivite: donnees["secteurActivite"] as String?,
+      ville: donnees["ville"] as String?,
+      quartier: donnees["quartier"] as String?,
+      adresseComplete: donnees["adresseComplete"] as String?,
+      telephoneProfessionnel: donnees["telephoneProfessionnel"] as String?,
+      emailProfessionnel: donnees["emailProfessionnel"] as String?,
+      siteWeb: donnees["siteWeb"] as String?,
+      logoUrl: donnees["logoUrl"] as String?,
+    );
+    _fichesById[newId] = fiche;
     return fiche;
   }
 
@@ -234,46 +257,47 @@ class GrossisteMockDatasource implements GrossisteDatasource {
     return updated;
   }
 
-  /// Simule le paiement de l'abonnement — active `aAbonnementActif` sur
-  /// la fiche correspondante. Côté réel, ce sera géré par l'endpoint de
-  /// paiement Mobile Money.
-  Future<FicheGrossisteModel> payerAbonnement(String ficheId) async {
-    await Future.delayed(const Duration(milliseconds: 1200));
-    final current = _fichesById[ficheId];
-    if (current == null) throw Exception("Fiche non trouvée");
-    final updated = FicheGrossisteModel(
-      id: current.id,
-      statutVerification: current.statutVerification,
-      aAbonnementActif: true,
-      nomEntreprise: current.nomEntreprise,
-      description: current.description,
-      secteurActivite: current.secteurActivite,
-      ville: current.ville,
-      quartier: current.quartier,
-      adresseComplete: current.adresseComplete,
-      telephoneProfessionnel: current.telephoneProfessionnel,
-      emailProfessionnel: current.emailProfessionnel,
-      siteWeb: current.siteWeb,
-      logoUrl: current.logoUrl,
-    );
-    _fichesById[ficheId] = updated;
-    return updated;
-  }
-
   @override
-  Future<DocumentVerificationModel> ajouterDocument({
+  Future<DocumentVerificationModel> uploaderDocument({
     required String ficheId,
     required String typeDocument,
-    required String urlDocument,
+    required String extension,
+    required List<int> bytes,
   }) async {
     await Future.delayed(_delay);
+
+    // Reflète le comportement backend : une fiche rejetée qui reçoit un
+    // nouveau document repasse en attente.
+    final current = _fichesById[ficheId];
+    if (current != null && current.statutVerification == "REJETE") {
+      _fichesById[ficheId] = FicheGrossisteModel(
+        id: current.id,
+        statutVerification: "EN_ATTENTE",
+        aAbonnementActif: current.aAbonnementActif,
+        nomEntreprise: current.nomEntreprise,
+        description: current.description,
+        secteurActivite: current.secteurActivite,
+        ville: current.ville,
+        quartier: current.quartier,
+        adresseComplete: current.adresseComplete,
+        telephoneProfessionnel: current.telephoneProfessionnel,
+        emailProfessionnel: current.emailProfessionnel,
+        siteWeb: current.siteWeb,
+        logoUrl: current.logoUrl,
+      );
+    }
+
     final doc = DocumentVerificationModel(
       id: "doc-${++_sequence}",
       typeDocument: typeDocument,
-      urlDocument: urlDocument,
+      urlDocument: "mock://document-${bytes.length}-bytes.$extension",
       statut: "EN_ATTENTE",
     );
-    _documentsByFicheId.putIfAbsent(ficheId, () => []).add(doc);
+    // Upsert par type — un document déjà soumis pour ce type est remplacé
+    // plutôt que dupliqué (mêmes règles que le backend réel).
+    final documents = _documentsByFicheId.putIfAbsent(ficheId, () => []);
+    documents.removeWhere((d) => d.typeDocument == typeDocument);
+    documents.add(doc);
     return doc;
   }
 
@@ -283,6 +307,39 @@ class GrossisteMockDatasource implements GrossisteDatasource {
   ) async {
     await Future.delayed(_delay);
     return List.unmodifiable(_documentsByFicheId[ficheId] ?? const []);
+  }
+
+  @override
+  Future<FicheGrossisteModel> uploaderLogo({
+    required String ficheId,
+    required String extension,
+    required List<int> bytes,
+  }) async {
+    await Future.delayed(_delay);
+    final current = _fichesById[ficheId];
+    if (current == null) {
+      throw const AppException("Fiche introuvable.", statusCode: 404);
+    }
+    final updated = FicheGrossisteModel(
+      id: current.id,
+      statutVerification: current.statutVerification,
+      aAbonnementActif: current.aAbonnementActif,
+      nomEntreprise: current.nomEntreprise,
+      description: current.description,
+      secteurActivite: current.secteurActivite,
+      ville: current.ville,
+      quartier: current.quartier,
+      adresseComplete: current.adresseComplete,
+      telephoneProfessionnel: current.telephoneProfessionnel,
+      emailProfessionnel: current.emailProfessionnel,
+      siteWeb: current.siteWeb,
+      logoUrl: "mock://logo-${bytes.length}-bytes.$extension",
+      certifiePremium: current.certifiePremium,
+      noteMoyenne: current.noteMoyenne,
+      nombreAvis: current.nombreAvis,
+    );
+    _fichesById[ficheId] = updated;
+    return updated;
   }
 
   @override
@@ -340,5 +397,34 @@ class GrossisteMockDatasource implements GrossisteDatasource {
   Future<List<ProduitGrossisteModel>> listerProduits(String ficheId) async {
     await Future.delayed(_delay);
     return List.unmodifiable(_produitsByFicheId[ficheId] ?? []);
+  }
+
+  @override
+  Future<String> uploaderPhotoProduit({
+    required String ficheId,
+    required String extension,
+    required List<int> bytes,
+  }) async {
+    await Future.delayed(_delay);
+    return "mock://produit-${bytes.length}-bytes.$extension";
+  }
+
+  @override
+  Future<void> supprimerProduit({
+    required String ficheId,
+    required String produitId,
+  }) async {
+    await Future.delayed(_delay);
+    _produitsByFicheId[ficheId]?.removeWhere((p) => p.id == produitId);
+  }
+
+  @override
+  Future<Map<String, dynamic>> consulterStatistiques(String ficheId) async {
+    await Future.delayed(_delay);
+    return {
+      "vuesMoisEnCours": 214,
+      "contactsDebloques": 12,
+      "vuesParJour": [4, 9, 6, 12, 8, 15, 18],
+    };
   }
 }

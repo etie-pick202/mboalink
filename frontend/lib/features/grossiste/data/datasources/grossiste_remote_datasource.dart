@@ -14,14 +14,21 @@ class GrossisteRemoteDatasource implements GrossisteDatasource {
   final Dio _dio;
 
   @override
-  Future<FicheGrossisteModel> maFiche({String? emailCompte}) async {
+  Future<FicheGrossisteModel?> maFiche({String? emailCompte}) async {
     // emailCompte n'est utile qu'au mock (sélection de scénario) — le
     // backend identifie l'utilisateur via le token Bearer.
-    // TODO(backend): endpoint à confirmer avec Aurelie. Hypothèse actuelle :
-    // GET /grossistes/me — à ajuster dès que le vrai contrat est fixé
-    // (alternative possible : ficheId renvoyé directement par
-    // /auth/connexion ou /auth/verifier-otp pour les comptes GROSSISTE).
-    final json = await _get("/grossistes/me");
+    try {
+      final json = await _get("/grossistes/me");
+      return FicheGrossisteModel.fromJson(json);
+    } on AppException catch (e) {
+      if (e.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  @override
+  Future<FicheGrossisteModel> creerFiche(Map<String, dynamic> donnees) async {
+    final json = await _post("/grossistes", donnees);
     return FicheGrossisteModel.fromJson(json);
   }
 
@@ -35,16 +42,98 @@ class GrossisteRemoteDatasource implements GrossisteDatasource {
   }
 
   @override
-  Future<DocumentVerificationModel> ajouterDocument({
+  Future<DocumentVerificationModel> uploaderDocument({
     required String ficheId,
     required String typeDocument,
-    required String urlDocument,
+    required String extension,
+    required List<int> bytes,
   }) async {
-    final json = await _post("/grossistes/$ficheId/documents", {
+    // 1. Demander une URL signée Supabase pour ce document.
+    final uploadUrlJson = await _post(
+      "/grossistes/$ficheId/documents/upload-url",
+      {
+        "typeDocument": typeDocument,
+        "extension": extension,
+        "contexte": "grossistes",
+      },
+    );
+    final uploadUrl = uploadUrlJson["uploadUrl"] as String;
+    final filePath = uploadUrlJson["filePath"] as String;
+
+    // 2. Uploader le fichier directement vers Supabase — appel isolé, sans
+    // le token Bearer MboaLink (inutile et non pertinent pour Supabase) ni
+    // le Content-Type JSON par défaut du client partagé.
+    try {
+      await Dio().put<void>(
+        uploadUrl,
+        data: bytes,
+        options: Options(contentType: _mimeType(extension)),
+      );
+    } on DioException catch (e) {
+      throw AppException(
+        "Échec de l'envoi du document. Vérifiez votre connexion et réessayez.",
+        statusCode: e.response?.statusCode,
+      );
+    }
+
+    // 3. Confirmer l'upload côté backend pour enregistrer le document.
+    final json = await _post("/grossistes/$ficheId/documents/confirmer", {
+      "filePath": filePath,
       "typeDocument": typeDocument,
-      "urlDocument": urlDocument,
     });
     return DocumentVerificationModel.fromJson(json);
+  }
+
+  @override
+  Future<FicheGrossisteModel> uploaderLogo({
+    required String ficheId,
+    required String extension,
+    required List<int> bytes,
+  }) async {
+    // Réutilise le même endpoint "upload-url" que les documents de
+    // vérification (générique sur typeDocument), avec typeDocument=LOGO.
+    final uploadUrlJson = await _post(
+      "/grossistes/$ficheId/documents/upload-url",
+      {
+        "typeDocument": "LOGO",
+        "extension": extension,
+        "contexte": "grossistes",
+      },
+    );
+    final uploadUrl = uploadUrlJson["uploadUrl"] as String;
+    final filePath = uploadUrlJson["filePath"] as String;
+
+    try {
+      await Dio().put<void>(
+        uploadUrl,
+        data: bytes,
+        options: Options(contentType: _mimeType(extension)),
+      );
+    } on DioException catch (e) {
+      throw AppException(
+        "Échec de l'envoi de la photo. Vérifiez votre connexion et réessayez.",
+        statusCode: e.response?.statusCode,
+      );
+    }
+
+    // Confirme sur logoUrl (pas la table de vérification de documents).
+    final json = await _patch("/grossistes/$ficheId/logo", {
+      "filePath": filePath,
+    });
+    return FicheGrossisteModel.fromJson(json);
+  }
+
+  String _mimeType(String extension) {
+    switch (extension.toLowerCase()) {
+      case "png":
+        return "image/png";
+      case "pdf":
+        return "application/pdf";
+      case "jpg":
+      case "jpeg":
+      default:
+        return "image/jpeg";
+    }
   }
 
   @override
@@ -67,6 +156,9 @@ class GrossisteRemoteDatasource implements GrossisteDatasource {
 
   Future<Map<String, dynamic>> _put(String path, Map<String, dynamic> data) =>
       _handle(() => _dio.put<Map<String, dynamic>>(path, data: data));
+
+  Future<Map<String, dynamic>> _patch(String path, Map<String, dynamic> data) =>
+      _handle(() => _dio.patch<Map<String, dynamic>>(path, data: data));
 
   Future<List<dynamic>> _getList(String path) async {
     try {
@@ -118,16 +210,60 @@ class GrossisteRemoteDatasource implements GrossisteDatasource {
         .toList();
   }
 
-  AppException _toAppException(DioException e) {
-    final body = e.response?.data;
-    if (body is Map<String, dynamic> && body["message"] is String) {
-      return AppException(
-        body["message"] as String,
+  @override
+  Future<void> supprimerProduit({
+    required String ficheId,
+    required String produitId,
+  }) async {
+    try {
+      await _dio.delete<void>("/grossistes/$ficheId/produits/$produitId");
+    } on DioException catch (e) {
+      throw _toAppException(e);
+    }
+  }
+
+  @override
+  Future<String> uploaderPhotoProduit({
+    required String ficheId,
+    required String extension,
+    required List<int> bytes,
+  }) async {
+    final uploadUrlJson = await _post(
+      "/grossistes/$ficheId/produits/upload-url",
+      {"extension": extension},
+    );
+    final uploadUrl = uploadUrlJson["uploadUrl"] as String;
+    final finalUrl = uploadUrlJson["finalUrl"] as String;
+
+    try {
+      await Dio().put<void>(
+        uploadUrl,
+        data: bytes,
+        options: Options(contentType: _mimeType(extension)),
+      );
+    } on DioException catch (e) {
+      throw AppException(
+        "Échec de l'envoi de la photo. Vérifiez votre connexion et réessayez.",
         statusCode: e.response?.statusCode,
       );
     }
-    return const AppException(
+
+    return finalUrl;
+  }
+
+  @override
+  Future<Map<String, dynamic>> consulterStatistiques(String ficheId) =>
+      _get("/grossistes/$ficheId/statistiques");
+
+  AppException _toAppException(DioException e) {
+    final body = e.response?.data;
+    final statusCode = e.response?.statusCode;
+    if (body is Map<String, dynamic> && body["message"] is String) {
+      return AppException(body["message"] as String, statusCode: statusCode);
+    }
+    return AppException(
       "Une erreur est survenue lors de la communication avec le serveur.",
+      statusCode: statusCode,
     );
   }
 }

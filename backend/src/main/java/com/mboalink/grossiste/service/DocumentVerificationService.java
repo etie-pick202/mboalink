@@ -1,5 +1,7 @@
 package com.mboalink.grossiste.service;
 
+import com.mboalink.commun.exception.AccesRefuseException;
+import com.mboalink.commun.exception.RessourceIntrouvableException;
 import com.mboalink.grossiste.dto.CreerDocumentRequest;
 import com.mboalink.grossiste.dto.DocumentResponse;
 import com.mboalink.grossiste.entity.DocumentVerification;
@@ -25,11 +27,18 @@ public class DocumentVerificationService {
 
         // 1. Récupérer la fiche
         FicheGrossiste fiche = ficheRepository.findById(ficheId)
-                .orElseThrow(() -> new IllegalStateException("Fiche introuvable."));
+                .orElseThrow(() -> new RessourceIntrouvableException("Fiche introuvable."));
 
         // 2. Sécurité : la fiche doit appartenir à l'utilisateur connecté
         if (!fiche.getUtilisateur().getId().equals(utilisateurId)) {
-            throw new IllegalStateException("Vous ne pouvez ajouter des documents qu'à votre propre fiche.");
+            throw new AccesRefuseException("Vous ne pouvez ajouter des documents qu'à votre propre fiche.");
+        }
+
+        // 2b. Cf. DocumentUploadService#confirmerUpload : une fiche rejetée
+        // repasse en attente dès qu'un document est renvoyé.
+        if ("REJETE".equals(fiche.getStatutVerification())) {
+            fiche.setStatutVerification("EN_ATTENTE");
+            ficheRepository.save(fiche);
         }
 
         // 3. Construire le document (statut EN_ATTENTE par défaut)
@@ -51,10 +60,10 @@ public class DocumentVerificationService {
     public List<DocumentResponse> listerDocuments(UUID utilisateurId, UUID ficheId) {
 
         FicheGrossiste fiche = ficheRepository.findById(ficheId)
-                .orElseThrow(() -> new IllegalStateException("Fiche introuvable."));
+                .orElseThrow(() -> new RessourceIntrouvableException("Fiche introuvable."));
 
         if (!fiche.getUtilisateur().getId().equals(utilisateurId)) {
-            throw new IllegalStateException("Vous ne pouvez voir que les documents de votre propre fiche.");
+            throw new AccesRefuseException("Vous ne pouvez voir que les documents de votre propre fiche.");
         }
 
         return documentRepository.findByFicheGrossisteId(ficheId).stream()

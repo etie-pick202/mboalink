@@ -1,10 +1,12 @@
 package com.mboalink.admin.service;
 
 import com.mboalink.admin.dto.ValidationFicheDTO;
+import com.mboalink.auth.repository.ComportementUtilisateurRepository;
 import com.mboalink.grossiste.entity.DocumentVerification;
 import com.mboalink.grossiste.entity.FicheGrossiste;
 import com.mboalink.grossiste.repository.DocumentVerificationRepository;
 import com.mboalink.grossiste.repository.FicheGrossisteRepository;
+import com.mboalink.notification.service.NotificationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +20,8 @@ public class FicheGrossisteAdminService {
 
     private final FicheGrossisteRepository ficheGrossisteRepository;
     private final DocumentVerificationRepository documentVerificationRepository;
+    private final ComportementUtilisateurRepository comportementUtilisateurRepository;
+    private final NotificationService notificationService;
     private static final String STATUT_EN_ATTENTE = "EN_ATTENTE";
 
     @Transactional(readOnly = true)
@@ -66,6 +70,24 @@ public class FicheGrossisteAdminService {
                 .orElseThrow(() -> new RuntimeException("Fiche introuvable"));
         fiche.setStatutVerification("VERIFIE");
         ficheGrossisteRepository.save(fiche);
+        notifierUtilisateursInteresses(fiche);
+    }
+
+    // "Nouveau grossiste près de vous" — alerte les utilisateurs ayant
+    // récemment cherché ce secteur ou filtré cette ville.
+    private void notifierUtilisateursInteresses(FicheGrossiste fiche) {
+        if (fiche.getSecteurActivite() == null && fiche.getVille() == null) return;
+        List<UUID> utilisateurIds = comportementUtilisateurRepository
+                .findUtilisateursInteressesParSecteurOuVille(fiche.getSecteurActivite(), fiche.getVille());
+        for (UUID utilisateurId : utilisateurIds) {
+            notificationService.creerPourUtilisateurId(
+                    utilisateurId,
+                    "NOUVEAU_GROSSISTE",
+                    "Nouveau grossiste " + (fiche.getSecteurActivite() != null ? fiche.getSecteurActivite() : "") + " près de vous",
+                    fiche.getNomEntreprise() + (fiche.getQuartier() != null ? " · " + fiche.getQuartier() : ""),
+                    fiche.getId().toString()
+            );
+        }
     }
 
     /** Rejette la fiche entière : seule statutVerification est modifiée */

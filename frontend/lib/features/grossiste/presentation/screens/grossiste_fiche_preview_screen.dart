@@ -3,10 +3,13 @@ import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
 
-import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/app_error_view.dart";
 import "../../../../core/widgets/app_loader.dart";
+import "../../../home/domain/entities/avis.dart";
+import "../../../home/presentation/providers/home_providers.dart";
+import "../../domain/entities/fiche_verification_statut.dart";
 import "../../domain/entities/produit_grossite.dart";
 import "../providers/grossiste_providers.dart";
 import "grossiste_nav_bar.dart";
@@ -34,20 +37,14 @@ class GrossisteFichePreviewScreen extends ConsumerWidget {
             ),
             child: ficheAsync.when(
               loading: () => const Center(child: AppLoader()),
-              error: (error, _) => Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                    error is AppException
-                        ? error.message
-                        : "Impossible de charger votre fiche.",
-                    textAlign: TextAlign.center,
-                    style: AppTypography.bodyMedium,
-                  ),
-                ),
+              error: (error, _) => AppErrorView(
+                error: error,
+                fallbackMessage: "Impossible de charger votre fiche.",
+                onRetry: () => ref.invalidate(maFicheProvider),
               ),
               data: (fiche) {
                 final produitsAsync = ref.watch(ficheProduits(fiche.id));
+                final avisAsync = ref.watch(avisListProvider(fiche.id));
 
                 return Column(
                   children: [
@@ -62,12 +59,24 @@ class GrossisteFichePreviewScreen extends ConsumerWidget {
                                   height: 160,
                                   width: double.infinity,
                                   color: AppColors.successBg,
-                                  child: const Center(
-                                    child: Icon(
-                                      Symbols.storefront,
-                                      size: 48,
-                                      color: AppColors.primary,
-                                    ),
+                                  child: Center(
+                                    child:
+                                        fiche.logoUrl != null &&
+                                            fiche.logoUrl!.isNotEmpty &&
+                                            !fiche.logoUrl!.startsWith(
+                                              "mock://",
+                                            )
+                                        ? Image.network(
+                                            fiche.logoUrl!,
+                                            width: double.infinity,
+                                            height: 160,
+                                            fit: BoxFit.cover,
+                                          )
+                                        : const Icon(
+                                            Symbols.storefront,
+                                            size: 48,
+                                            color: AppColors.primary,
+                                          ),
                                   ),
                                 ),
                                 Positioned(
@@ -114,12 +123,24 @@ class GrossisteFichePreviewScreen extends ConsumerWidget {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
-                                    const Icon(
-                                      Symbols.verified,
-                                      size: 18,
-                                      color: Color(0xFF1D9BF0),
-                                    ),
+                                    if (fiche.statutVerification ==
+                                        FicheVerificationStatut.verifie) ...[
+                                      const SizedBox(width: 6),
+                                      const Icon(
+                                        Symbols.verified,
+                                        size: 18,
+                                        color: Color(0xFF1D9BF0),
+                                      ),
+                                    ],
+                                    if (fiche.certifiePremium) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Symbols.workspace_premium,
+                                        size: 18,
+                                        fill: 1,
+                                        color: AppColors.accent,
+                                      ),
+                                    ],
                                   ],
                                 ),
                                 const SizedBox(height: 4),
@@ -132,15 +153,16 @@ class GrossisteFichePreviewScreen extends ConsumerWidget {
                                   ),
                                 const SizedBox(height: 8),
 
-                                // Note simulée (conforme revue — enrichissement social)
+                                // Note réelle (NotationService — mêmes données
+                                // que la fiche publique vue par les clients).
                                 Row(
                                   children: [
                                     ...List.generate(
                                       5,
                                       (i) => Icon(
-                                        i < 4
+                                        i < (fiche.noteMoyenne ?? 0).round()
                                             ? Symbols.star
-                                            : Symbols.star_half,
+                                            : Symbols.star_border,
                                         size: 15,
                                         color: AppColors.accent,
                                         fill: 1,
@@ -148,14 +170,16 @@ class GrossisteFichePreviewScreen extends ConsumerWidget {
                                     ),
                                     const SizedBox(width: 6),
                                     Text(
-                                      "4.8",
+                                      (fiche.noteMoyenne ?? 0).toStringAsFixed(
+                                        1,
+                                      ),
                                       style: AppTypography.bodySmall.copyWith(
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
-                                      "(127 avis)",
+                                      "(${fiche.nombreAvis} avis)",
                                       style: AppTypography.caption,
                                     ),
                                   ],
@@ -261,20 +285,36 @@ class GrossisteFichePreviewScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 const SizedBox(height: 10),
-                                const _AvisTile(
-                                  auteur: "Alice K.",
-                                  note: 5,
-                                  commentaire:
-                                      "Très réactif, produits toujours frais. Je recommande !",
-                                  date: "il y a 3 jours",
-                                ),
-                                const SizedBox(height: 8),
-                                const _AvisTile(
-                                  auteur: "Jean-Marc T.",
-                                  note: 4,
-                                  commentaire:
-                                      "Bon grossiste, prix compétitifs. Livraison rapide.",
-                                  date: "il y a 1 semaine",
+                                avisAsync.when(
+                                  data: (avis) {
+                                    if (avis.isEmpty) {
+                                      return Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: Text(
+                                          "Aucun avis pour l'instant.",
+                                          style: AppTypography.bodySmall
+                                              .copyWith(
+                                                color: AppColors.textMuted,
+                                              ),
+                                        ),
+                                      );
+                                    }
+                                    return Column(
+                                      children: [
+                                        for (final a in avis.take(5)) ...[
+                                          _AvisTile(avis: a),
+                                          const SizedBox(height: 8),
+                                        ],
+                                      ],
+                                    );
+                                  },
+                                  loading: () => const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 8),
+                                    child: AppLoader(size: 18),
+                                  ),
+                                  error: (_, _) => const SizedBox.shrink(),
                                 ),
                                 const SizedBox(height: 24),
                               ]),
@@ -351,11 +391,19 @@ class _ProduitPreviewTile extends StatelessWidget {
               color: AppColors.background,
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(
-              Symbols.inventory_2,
-              size: 20,
-              color: AppColors.textMuted,
-            ),
+            child:
+                produit.imageUrl != null &&
+                    produit.imageUrl!.isNotEmpty &&
+                    !produit.imageUrl!.startsWith("mock://")
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.network(produit.imageUrl!, fit: BoxFit.cover),
+                  )
+                : const Icon(
+                    Symbols.inventory_2,
+                    size: 20,
+                    color: AppColors.textMuted,
+                  ),
           ),
           const SizedBox(width: 10),
           Expanded(
@@ -399,20 +447,22 @@ class _ProduitPreviewTile extends StatelessWidget {
 }
 
 class _AvisTile extends StatelessWidget {
-  const _AvisTile({
-    required this.auteur,
-    required this.note,
-    required this.commentaire,
-    required this.date,
-  });
+  const _AvisTile({required this.avis});
 
-  final String auteur;
-  final int note;
-  final String commentaire;
-  final String date;
+  final Avis avis;
+
+  String _formatDate(DateTime d) {
+    final diff = DateTime.now().difference(d);
+    if (diff.inDays >= 7) return "il y a ${(diff.inDays / 7).floor()} sem";
+    if (diff.inDays >= 1) return "il y a ${diff.inDays} j";
+    return "à l'instant";
+  }
 
   @override
   Widget build(BuildContext context) {
+    final initiale = avis.utilisateurNom.isNotEmpty
+        ? avis.utilisateurNom[0].toUpperCase()
+        : "?";
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -429,7 +479,7 @@ class _AvisTile extends StatelessWidget {
                 radius: 15,
                 backgroundColor: AppColors.successBg,
                 child: Text(
-                  auteur[0],
+                  initiale,
                   style: GoogleFonts.manrope(
                     fontWeight: FontWeight.w700,
                     color: AppColors.primary,
@@ -440,13 +490,13 @@ class _AvisTile extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  auteur,
+                  avis.utilisateurNom,
                   style: AppTypography.bodySmall.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
-              Text(date, style: AppTypography.caption),
+              Text(_formatDate(avis.creeLe), style: AppTypography.caption),
             ],
           ),
           const SizedBox(height: 6),
@@ -456,16 +506,18 @@ class _AvisTile extends StatelessWidget {
               (i) => Icon(
                 Symbols.star,
                 size: 13,
-                color: i < note ? AppColors.accent : AppColors.border,
+                color: i < avis.note ? AppColors.accent : AppColors.border,
                 fill: 1,
               ),
             ),
           ),
-          const SizedBox(height: 5),
-          Text(
-            commentaire,
-            style: AppTypography.bodySmall.copyWith(height: 1.5),
-          ),
+          if (avis.commentaire != null && avis.commentaire!.isNotEmpty) ...[
+            const SizedBox(height: 5),
+            Text(
+              avis.commentaire!,
+              style: AppTypography.bodySmall.copyWith(height: 1.5),
+            ),
+          ],
         ],
       ),
     );

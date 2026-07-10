@@ -1,9 +1,9 @@
 import "../../domain/entities/document_verification.dart";
 import "../../domain/entities/fiche_grossiste.dart";
+import "../../domain/entities/fiche_statistiques.dart";
 import "../../domain/entities/produit_grossite.dart";
 import "../../domain/repositories/grossiste_repository.dart";
 import "../datasources/grossiste_datasource.dart";
-import "../datasources/grossiste_mock_datasource.dart";
 
 class GrossisteRepositoryImpl implements GrossisteRepository {
   const GrossisteRepositoryImpl(this._datasource);
@@ -11,8 +11,14 @@ class GrossisteRepositoryImpl implements GrossisteRepository {
   final GrossisteDatasource _datasource;
 
   @override
-  Future<FicheGrossiste> maFiche({String? emailCompte}) async {
+  Future<FicheGrossiste?> maFiche({String? emailCompte}) async {
     final model = await _datasource.maFiche(emailCompte: emailCompte);
+    return model?.toEntity();
+  }
+
+  @override
+  Future<FicheGrossiste> creerFiche(Map<String, dynamic> donnees) async {
+    final model = await _datasource.creerFiche(donnees);
     return model.toEntity();
   }
 
@@ -29,15 +35,17 @@ class GrossisteRepositoryImpl implements GrossisteRepository {
   }
 
   @override
-  Future<DocumentVerification> ajouterDocument({
+  Future<DocumentVerification> uploaderDocument({
     required String ficheId,
     required String typeDocument,
-    required String urlDocument,
+    required String extension,
+    required List<int> bytes,
   }) async {
-    final model = await _datasource.ajouterDocument(
+    final model = await _datasource.uploaderDocument(
       ficheId: ficheId,
       typeDocument: typeDocument,
-      urlDocument: urlDocument,
+      extension: extension,
+      bytes: bytes,
     );
     return model.toEntity();
   }
@@ -46,6 +54,20 @@ class GrossisteRepositoryImpl implements GrossisteRepository {
   Future<List<DocumentVerification>> listerDocuments(String ficheId) async {
     final models = await _datasource.listerDocuments(ficheId);
     return models.map((m) => m.toEntity()).toList();
+  }
+
+  @override
+  Future<FicheGrossiste> uploaderLogo({
+    required String ficheId,
+    required String extension,
+    required List<int> bytes,
+  }) async {
+    final model = await _datasource.uploaderLogo(
+      ficheId: ficheId,
+      extension: extension,
+      bytes: bytes,
+    );
+    return model.toEntity();
   }
 
   @override
@@ -81,17 +103,33 @@ class GrossisteRepositoryImpl implements GrossisteRepository {
   }
 
   @override
-  Future<FicheGrossiste> payerAbonnement(String ficheId) async {
-    // Promotion de type Dart — plus besoin de cast explicite.
-    // TODO(backend): brancher sur le vrai endpoint de paiement une fois
-    // le domaine Paiements développé côté backend.
-    final datasource = _datasource;
-    if (datasource is GrossisteMockDatasource) {
-      final model = await datasource.payerAbonnement(ficheId);
-      return model.toEntity();
-    }
-    throw UnimplementedError(
-      "payerAbonnement non encore implémenté côté remote.",
+  Future<void> supprimerProduit({
+    required String ficheId,
+    required String produitId,
+  }) => _datasource.supprimerProduit(ficheId: ficheId, produitId: produitId);
+
+  @override
+  Future<String> uploaderPhotoProduit({
+    required String ficheId,
+    required String extension,
+    required List<int> bytes,
+  }) => _datasource.uploaderPhotoProduit(
+    ficheId: ficheId,
+    extension: extension,
+    bytes: bytes,
+  );
+
+  @override
+  Future<FicheStatistiques> consulterStatistiques(String ficheId) async {
+    final json = await _datasource.consulterStatistiques(ficheId);
+    return FicheStatistiques(
+      vuesMoisEnCours: json["vuesMoisEnCours"] as int? ?? 0,
+      contactsDebloques: json["contactsDebloques"] as int? ?? 0,
+      vuesParJour:
+          (json["vuesParJour"] as List<dynamic>?)
+              ?.map((e) => (e as num).toInt())
+              .toList() ??
+          List.filled(7, 0),
     );
   }
 }

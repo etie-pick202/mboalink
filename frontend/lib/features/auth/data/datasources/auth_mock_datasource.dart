@@ -98,6 +98,7 @@ class AuthMockDatasource implements AuthDatasource {
     required String email,
     required String motDePasse,
     required String role,
+    String? telephone,
   }) async {
     await Future.delayed(_delay);
     if (_accounts.containsKey(email)) {
@@ -216,6 +217,72 @@ class AuthMockDatasource implements AuthDatasource {
       throw const AppException("Compte introuvable.", statusCode: 404);
     }
     account.motDePasse = nouveauMotDePasse;
+  }
+
+  @override
+  Future<AuthSession> devenirGrossiste() async {
+    await Future.delayed(_delay);
+    // Mode mock — aucune session courante à retrouver ici, on simule
+    // simplement la bascule de rôle sur un compte factice.
+    final account = _MockAccount(
+      id: "mock-user-devenu-grossiste",
+      nom: "Compte",
+      prenom: "Bascule",
+      motDePasse: "",
+      role: "GROSSISTE",
+      email: "bascule@mboalink.cm",
+      emailVerifie: true,
+    );
+    return _buildSession(account);
+  }
+
+  @override
+  Future<void> modifierProfil({
+    required String nom,
+    required String prenom,
+  }) async {
+    await Future.delayed(_delay);
+  }
+
+  @override
+  Future<void> changerMotDePasse({
+    required String ancienMotDePasse,
+    required String nouveauMotDePasse,
+  }) async {
+    await Future.delayed(_delay);
+    final account = _accounts.values.firstWhere(
+      (a) => a.motDePasse == ancienMotDePasse,
+      orElse: () => _MockAccount(
+        id: "",
+        nom: "",
+        prenom: "",
+        motDePasse: "",
+        role: "",
+        email: "",
+      ),
+    );
+    if (account.id.isEmpty) {
+      throw const AppException(
+        "Mot de passe actuel incorrect.",
+        statusCode: 401,
+      );
+    }
+    account.motDePasse = nouveauMotDePasse;
+  }
+
+  @override
+  Future<AuthSession> redevenirUtilisateur() async {
+    await Future.delayed(_delay);
+    final account = _MockAccount(
+      id: "mock-user-redevenu-client",
+      nom: "Compte",
+      prenom: "Bascule",
+      motDePasse: "",
+      role: "UTILISATEUR",
+      email: "bascule@mboalink.cm",
+      emailVerifie: true,
+    );
+    return _buildSession(account);
   }
 
   AuthSession _buildSession(_MockAccount account, {String? roleOverride}) {

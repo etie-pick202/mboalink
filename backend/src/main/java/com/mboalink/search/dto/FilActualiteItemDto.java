@@ -22,6 +22,7 @@ public class FilActualiteItemDto {
     private Double noteMoyenne;
     private Integer nombreAvis;
     private Boolean certifie;
+    private Boolean certifiePremium;
     private Double distanceKm;
     private String raisonRecommandation;
 }

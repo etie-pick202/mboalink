@@ -5,16 +5,23 @@ import "package:google_fonts/google_fonts.dart";
 import "package:material_symbols_icons/symbols.dart";
 
 import "../../../../core/constants/app_routes.dart";
-import "../../../../core/errors/app_exception.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
+import "../../../../core/widgets/app_error_view.dart";
 import "../../../../core/widgets/app_loader.dart";
+import "../../../../core/widgets/contact_support_sheet.dart";
+import "../../../../core/widgets/dashboard_widget_picker_sheet.dart";
+import "../../../../core/widgets/mini_line_chart.dart";
 import "../../../../core/widgets/primary_button.dart";
 import "../../../auth/presentation/providers/auth_providers.dart";
 import "../../domain/entities/document_statut.dart";
 import "../../domain/entities/document_verification.dart";
 import "../../domain/entities/fiche_grossiste.dart";
+import "../../domain/entities/fiche_verification_statut.dart";
 import "../../domain/entities/grossiste_dashboard_status.dart";
+import "../../domain/entities/grossiste_dashboard_widget.dart";
+import "../../../payment/domain/entities/abonnement.dart";
+import "../../../payment/presentation/providers/payment_providers.dart";
 import "../providers/grossiste_providers.dart";
 import "grossiste_nav_bar.dart";
 
@@ -34,38 +41,31 @@ class GrossisteDashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final ficheAsync = ref.watch(maFicheProvider);
+    final abonnementAsync = ref.watch(monAbonnementProvider);
 
     return ficheAsync.when(
       loading: () => const Scaffold(body: Center(child: AppLoader())),
       error: (error, _) => Scaffold(
         backgroundColor: AppColors.surfaceAlt,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  error is AppException
-                      ? error.message
-                      : "Impossible de charger votre fiche.",
-                  textAlign: TextAlign.center,
-                  style: AppTypography.bodyMedium,
-                ),
-                const SizedBox(height: 14),
-                PrimaryButton(
-                  label: "Réessayer",
-                  onPressed: () => ref.invalidate(maFicheProvider),
-                ),
-              ],
-            ),
-          ),
+        body: AppErrorView(
+          error: error,
+          fallbackMessage: "Impossible de charger votre fiche.",
+          onRetry: () => ref.invalidate(maFicheProvider),
         ),
       ),
       data: (fiche) {
-        switch (fiche.dashboardStatus) {
+        // Le chargement de l'abonnement est traité comme "pas encore actif"
+        // (pas d'attente bloquante ici) — une fois résolu, le provider
+        // rebuild ce widget avec la vraie valeur.
+        final abonnementActif =
+            abonnementAsync.value?.statut == StatutAbonnement.actif;
+
+        switch (fiche.dashboardStatus(abonnementActif: abonnementActif)) {
           case GrossisteDashboardStatus.validee:
-            return const _ValidatedDashboard();
+            return _ValidatedDashboard(
+              fiche: fiche,
+              abonnement: abonnementAsync.value,
+            );
           case GrossisteDashboardStatus.rejetee:
             return _RejectedDashboard(fiche: fiche);
           case GrossisteDashboardStatus.suspendue:
@@ -271,7 +271,8 @@ class _PendingDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isPending =
-        fiche.dashboardStatus == GrossisteDashboardStatus.enAttente;
+        fiche.dashboardStatus(abonnementActif: false) ==
+        GrossisteDashboardStatus.enAttente;
 
     return _LockedShell(
       banner: Container(
@@ -725,12 +726,6 @@ class _ActiveNavItem extends StatelessWidget {
 class _SuspendedDashboard extends ConsumerWidget {
   const _SuspendedDashboard();
 
-  void _comingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text("$feature — bientôt disponible.")));
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
@@ -786,7 +781,7 @@ class _SuspendedDashboard extends ConsumerWidget {
                 const SizedBox(height: 20),
                 PrimaryButton(
                   label: "Contacter le support",
-                  onPressed: () => _comingSoon(context, "Contacter le support"),
+                  onPressed: () => showContactSupportSheet(context),
                 ),
               ],
             ),
@@ -799,19 +794,62 @@ class _SuspendedDashboard extends ConsumerWidget {
 
 // ── État validé — dashboard complet ──────────────────────────────────────────
 
-class _ValidatedDashboard extends StatelessWidget {
-  const _ValidatedDashboard();
+class _ValidatedDashboard extends ConsumerWidget {
+  const _ValidatedDashboard({required this.fiche, required this.abonnement});
 
-  void _comingSoon(BuildContext context, String feature) {
-    ScaffoldMessenger.of(
+  final FicheGrossiste fiche;
+  final Abonnement? abonnement;
+
+  String _formatDate(DateTime date) {
+    const mois = [
+      "jan",
+      "fév",
+      "mar",
+      "avr",
+      "mai",
+      "juin",
+      "juil",
+      "août",
+      "sep",
+      "oct",
+      "nov",
+      "déc",
+    ];
+    return "${date.day} ${mois[date.month - 1]}";
+  }
+
+  Future<void> _ouvrirPersonnalisation(
+    BuildContext context,
+    WidgetRef ref,
+    Set<GrossisteDashboardWidget> actuels,
+  ) async {
+    final result = await showDashboardWidgetPickerSheet(
       context,
-    ).showSnackBar(SnackBar(content: Text("$feature — bientôt disponible.")));
+      options: [
+        for (final w in GrossisteDashboardWidget.values)
+          DashboardWidgetOption(
+            id: w.name,
+            label: w.label,
+            description: w.description,
+            icon: w.icon,
+          ),
+      ],
+      selected: actuels.map((w) => w.name).toSet(),
+    );
+    if (result == null) return;
+    final widgets = GrossisteDashboardWidget.values
+        .where((w) => result.contains(w.name))
+        .toSet();
+    await saveGrossisteEnabledWidgets(ref, widgets);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final size = MediaQuery.sizeOf(context);
     final isTablet = size.shortestSide >= 600;
+    final statsAsync = ref.watch(ficheStatistiquesProvider(fiche.id));
+    final enabledAsync = ref.watch(grossisteEnabledWidgetsProvider);
+    final enabled = enabledAsync.value ?? GrossisteDashboardWidget.all;
 
     return Scaffold(
       backgroundColor: AppColors.surfaceAlt,
@@ -844,24 +882,64 @@ class _ValidatedDashboard extends StatelessWidget {
                                 Row(
                                   children: [
                                     Text(
-                                      "Ets Tchana & Fils",
+                                      fiche.nomEntreprise ?? "Mon entreprise",
                                       style: GoogleFonts.spaceGrotesk(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
                                         color: AppColors.textPrimary,
                                       ),
                                     ),
-                                    const SizedBox(width: 5),
-                                    const Icon(
-                                      Symbols.verified,
-                                      size: 15,
-                                      color: Color(0xFF1D9BF0),
-                                    ),
+                                    if (fiche.statutVerification ==
+                                        FicheVerificationStatut.verifie) ...[
+                                      const SizedBox(width: 5),
+                                      const Icon(
+                                        Symbols.verified,
+                                        size: 15,
+                                        color: Color(0xFF1D9BF0),
+                                      ),
+                                    ],
+                                    if (fiche.certifiePremium) ...[
+                                      const SizedBox(width: 4),
+                                      Icon(
+                                        Symbols.workspace_premium,
+                                        size: 15,
+                                        fill: 1,
+                                        color: AppColors.accent,
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ],
                             ),
-                            const _SettingsMenuButton(),
+                            Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () => _ouvrirPersonnalisation(
+                                    context,
+                                    ref,
+                                    enabled,
+                                  ),
+                                  child: Container(
+                                    width: 38,
+                                    height: 38,
+                                    margin: const EdgeInsets.only(right: 8),
+                                    decoration: BoxDecoration(
+                                      color: AppColors.surface,
+                                      border: Border.all(
+                                        color: AppColors.border,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: const Icon(
+                                      Symbols.tune,
+                                      size: 19,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                ),
+                                const _SettingsMenuButton(),
+                              ],
+                            ),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -885,7 +963,10 @@ class _ValidatedDashboard extends StatelessWidget {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      "Abonnement actif · expire le 12 juil",
+                                      abonnement != null
+                                          ? "Abonnement actif · expire le "
+                                                "${_formatDate(abonnement!.dateFin)}"
+                                          : "Abonnement actif",
                                       style: GoogleFonts.manrope(
                                         fontSize: 11,
                                         fontWeight: FontWeight.w500,
@@ -896,7 +977,10 @@ class _ValidatedDashboard extends StatelessWidget {
                                     ),
                                     const SizedBox(height: 3),
                                     Text(
-                                      "Plan Pro · 15 000 F/mois",
+                                      abonnement != null
+                                          ? "${abonnement!.typeAbonnement == "ANNUEL" ? "Plan annuel" : "Plan mensuel"} · "
+                                                "${abonnement!.montant.toStringAsFixed(0)} F"
+                                          : "Plan Pro",
                                       style: GoogleFonts.spaceGrotesk(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -907,8 +991,9 @@ class _ValidatedDashboard extends StatelessWidget {
                                 ),
                               ),
                               GestureDetector(
-                                onTap: () =>
-                                    _comingSoon(context, "Gestion abonnement"),
+                                onTap: () => context.push(
+                                  AppRoutes.grossisteMonAbonnement,
+                                ),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 11,
@@ -931,93 +1016,132 @@ class _ValidatedDashboard extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: _StatCard(
-                                icon: Symbols.visibility,
-                                value: "2 412",
-                                label: "Vues ce mois",
-                              ),
+                        if (enabled.contains(
+                          GrossisteDashboardWidget.statsVues,
+                        )) ...[
+                          const SizedBox(height: 14),
+                          statsAsync.when(
+                            loading: () => const Padding(
+                              padding: EdgeInsets.symmetric(vertical: 20),
+                              child: Center(child: CircularProgressIndicator()),
                             ),
-                            const SizedBox(width: 9),
-                            Expanded(
-                              child: _StatCard(
-                                icon: Symbols.lock_open,
-                                value: "86",
-                                label: "Contacts débloqués",
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 14),
-                        Container(
-                          padding: const EdgeInsets.all(13),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            border: Border.all(color: AppColors.borderLight),
-                            borderRadius: BorderRadius.circular(14),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Vues · 7 derniers jours",
-                                    style: AppTypography.bodyMedium.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
+                            error: (_, _) => Row(
+                              children: [
+                                Expanded(
+                                  child: _StatCard(
+                                    icon: Symbols.visibility,
+                                    value: "—",
+                                    label: "Vues ce mois",
                                   ),
-                                  Text(
-                                    "+18%",
-                                    style: AppTypography.bodySmall.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                      color: AppColors.primary,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              SizedBox(
-                                height: 62,
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
-                                  children: const [
-                                    _Bar(
-                                      heightFactor: 0.42,
-                                      highlighted: false,
-                                    ),
-                                    SizedBox(width: 7),
-                                    _Bar(
-                                      heightFactor: 0.58,
-                                      highlighted: false,
-                                    ),
-                                    SizedBox(width: 7),
-                                    _Bar(
-                                      heightFactor: 0.36,
-                                      highlighted: false,
-                                    ),
-                                    SizedBox(width: 7),
-                                    _Bar(heightFactor: 0.70, highlighted: true),
-                                    SizedBox(width: 7),
-                                    _Bar(
-                                      heightFactor: 0.54,
-                                      highlighted: false,
-                                    ),
-                                    SizedBox(width: 7),
-                                    _Bar(heightFactor: 0.82, highlighted: true),
-                                    SizedBox(width: 7),
-                                    _Bar(heightFactor: 1.0, highlighted: true),
-                                  ],
                                 ),
-                              ),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: _StatCard(
+                                    icon: Symbols.lock_open,
+                                    value: "—",
+                                    label: "Contacts débloqués",
+                                  ),
+                                ),
+                              ],
+                            ),
+                            data: (stats) => Row(
+                              children: [
+                                Expanded(
+                                  child: _StatCard(
+                                    icon: Symbols.visibility,
+                                    value: "${stats.vuesMoisEnCours}",
+                                    label: "Vues ce mois",
+                                  ),
+                                ),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: _StatCard(
+                                    icon: Symbols.lock_open,
+                                    value: "${stats.contactsDebloques}",
+                                    label: "Contacts débloqués",
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (enabled.contains(
+                          GrossisteDashboardWidget.vuesChart,
+                        )) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(13),
+                            decoration: BoxDecoration(
+                              color: AppColors.surface,
+                              border: Border.all(color: AppColors.borderLight),
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Vues · 7 derniers jours",
+                                  style: AppTypography.bodyMedium.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                statsAsync.when(
+                                  loading: () => const SizedBox(
+                                    height: 90,
+                                    child: Center(
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    ),
+                                  ),
+                                  error: (_, _) => const MiniLineChart(
+                                    values: [],
+                                    labels: [],
+                                  ),
+                                  data: (stats) => MiniLineChart(
+                                    values: stats.vuesParJour
+                                        .map((v) => v.toDouble())
+                                        .toList(),
+                                    labels: _sevenDayLabels(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        if (enabled.contains(GrossisteDashboardWidget.maNote) ||
+                            enabled.contains(
+                              GrossisteDashboardWidget.mesProduits,
+                            )) ...[
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              if (enabled.contains(
+                                GrossisteDashboardWidget.maNote,
+                              ))
+                                Expanded(
+                                  child: _NoteCard(
+                                    noteMoyenne: fiche.noteMoyenne,
+                                    nombreAvis: fiche.nombreAvis,
+                                  ),
+                                ),
+                              if (enabled.contains(
+                                    GrossisteDashboardWidget.maNote,
+                                  ) &&
+                                  enabled.contains(
+                                    GrossisteDashboardWidget.mesProduits,
+                                  ))
+                                const SizedBox(width: 9),
+                              if (enabled.contains(
+                                GrossisteDashboardWidget.mesProduits,
+                              ))
+                                Expanded(
+                                  child: _ProduitsCard(ficheId: fiche.id),
+                                ),
                             ],
                           ),
-                        ),
+                        ],
                         const SizedBox(height: 14),
                         Row(
                           children: [
@@ -1026,8 +1150,9 @@ class _ValidatedDashboard extends StatelessWidget {
                                 icon: Symbols.edit,
                                 label: "Modifier fiche",
                                 enabled: true,
-                                onTap: () =>
-                                    context.push(AppRoutes.grossisteBoutique),
+                                onTap: () => context.push(
+                                  AppRoutes.grossisteEditerFiche,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 9),
@@ -1036,8 +1161,9 @@ class _ValidatedDashboard extends StatelessWidget {
                                 icon: Symbols.workspace_premium,
                                 label: "Certification",
                                 enabled: true,
-                                onTap: () =>
-                                    _comingSoon(context, "Certification"),
+                                onTap: () => context.push(
+                                  AppRoutes.grossisteCertification,
+                                ),
                               ),
                             ),
                           ],
@@ -1158,7 +1284,7 @@ class _QuickAction extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = enabled ? AppColors.primary : AppColors.textFaint;
     return GestureDetector(
-      onTap: onTap,
+      onTap: enabled ? onTap : null,
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14),
         decoration: BoxDecoration(
@@ -1184,24 +1310,89 @@ class _QuickAction extends StatelessWidget {
   }
 }
 
-class _Bar extends StatelessWidget {
-  const _Bar({required this.heightFactor, required this.highlighted});
+/// Libellés courts (L, M, M, J…) pour les 7 derniers jours, du plus
+/// ancien (J-6) au plus récent (aujourd'hui) — même ordre que
+/// FicheStatistiques.vuesParJour.
+List<String> _sevenDayLabels() {
+  const initiales = ["L", "M", "M", "J", "V", "S", "D"];
+  final aujourdhui = DateTime.now();
+  return List.generate(7, (i) {
+    final jour = aujourdhui.subtract(Duration(days: 6 - i));
+    return initiales[jour.weekday - 1];
+  });
+}
 
-  final double heightFactor;
-  final bool highlighted;
+class _NoteCard extends StatelessWidget {
+  const _NoteCard({required this.noteMoyenne, required this.nombreAvis});
+
+  final double? noteMoyenne;
+  final int nombreAvis;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: FractionallySizedBox(
-        heightFactor: heightFactor,
-        alignment: Alignment.bottomCenter,
-        child: Container(
-          decoration: BoxDecoration(
-            color: highlighted ? AppColors.primary : AppColors.successBorder,
-            borderRadius: BorderRadius.circular(4),
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.borderLight),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Symbols.star, size: 19, color: AppColors.accent, fill: 1),
+          const SizedBox(height: 8),
+          Text(
+            (noteMoyenne ?? 0).toStringAsFixed(1),
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
           ),
-        ),
+          const SizedBox(height: 2),
+          Text("$nombreAvis avis", style: AppTypography.caption),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProduitsCard extends ConsumerWidget {
+  const _ProduitsCard({required this.ficheId});
+
+  final String ficheId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final produitsAsync = ref.watch(ficheProduits(ficheId));
+    return Container(
+      padding: const EdgeInsets.all(13),
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        border: Border.all(color: AppColors.borderLight),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Symbols.inventory_2, size: 19, color: AppColors.primary),
+          const SizedBox(height: 8),
+          Text(
+            produitsAsync.when(
+              data: (produits) => "${produits.length}",
+              loading: () => "—",
+              error: (_, _) => "—",
+            ),
+            style: GoogleFonts.spaceGrotesk(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text("produits en boutique", style: AppTypography.caption),
+        ],
       ),
     );
   }

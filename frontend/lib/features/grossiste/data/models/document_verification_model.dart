@@ -22,9 +22,6 @@ class DocumentVerificationModel {
       id: json["id"] as String,
       typeDocument: json["typeDocument"] as String,
       urlDocument: json["urlDocument"] as String,
-      // TODO(backend): "statut" absent de l'exemple de réponse Postman de
-      // GET /grossistes/{ficheId}/documents (seulement dans l'entité) —
-      // EN_ATTENTE par défaut en attendant confirmation.
       statut: json["statut"] as String? ?? "EN_ATTENTE",
       commentaireAdmin: json["commentaireAdmin"] as String?,
     );

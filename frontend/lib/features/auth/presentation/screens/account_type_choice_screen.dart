@@ -47,7 +47,6 @@ class _AccountTypeChoiceScreenState
     });
 
     try {
-      // POST /auth/inscription — telephone non envoyé (non supporté backend).
       await ref
           .read(authRepositoryProvider)
           .inscrire(
@@ -56,6 +55,7 @@ class _AccountTypeChoiceScreenState
             email: widget.draft.email,
             motDePasse: widget.draft.motDePasse,
             role: _selectedRole!.toApi,
+            telephone: widget.draft.telephone,
           );
 
       if (!mounted) return;
@@ -64,6 +64,7 @@ class _AccountTypeChoiceScreenState
         AppRoutes.otp,
         extra: {
           "cible": widget.draft.email,
+          "telephone": widget.draft.telephone,
           "isGrossiste": _selectedRole == UserRole.grossiste,
         },
       );

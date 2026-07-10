@@ -18,14 +18,18 @@ enum GrossisteDashboardStatus {
 }
 
 extension GrossisteDashboardStatusX on FicheGrossiste {
-  GrossisteDashboardStatus get dashboardStatus {
+  /// [abonnementActif] doit venir de `monAbonnementProvider` (le vrai
+  /// abonnement, module paiement) — le champ `aAbonnementActif` de la
+  /// fiche elle-même n'est jamais renseigné par le backend (absent de
+  /// FicheResponse), donc toujours faux : ne pas s'y fier ici.
+  GrossisteDashboardStatus dashboardStatus({required bool abonnementActif}) {
     if (estVide) return GrossisteDashboardStatus.nonSoumise;
     switch (statutVerification) {
       case FicheVerificationStatut.verifie:
         // Documents validés par l'admin — si pas encore d'abonnement
         // actif, le grossiste doit payer avant d'accéder au dashboard
         // complet.
-        return aAbonnementActif
+        return abonnementActif
             ? GrossisteDashboardStatus.validee
             : GrossisteDashboardStatus.enAttenteAbonnement;
       case FicheVerificationStatut.rejete:
