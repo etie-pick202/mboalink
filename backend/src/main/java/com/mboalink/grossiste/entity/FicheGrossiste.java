@@ -77,7 +77,11 @@ public class FicheGrossiste {
     @Column(name = "longitude")
     private Double longitude;
 
-    @Column(name = "coordonnees_visibles", nullable = false)
+    // columnDefinition avec DEFAULT : permet à ddl-auto=update d'ajouter
+    // cette colonne NOT NULL à une table déjà peuplée (Postgres refuse un
+    // ADD COLUMN NOT NULL sans valeur par défaut sur des lignes existantes).
+    @Column(name = "coordonnees_visibles", nullable = false,
+            columnDefinition = "boolean not null default false")
     @Builder.Default
     private Boolean coordonneesVisibles = false;
 
@@ -100,7 +104,8 @@ public class FicheGrossiste {
 
     /** Badge payant optionnel (25000 FCFA, paiement unique) — distinct du
      *  statut de vérification gratuit issu de la revue des documents. */
-    @Column(name = "certifie_premium", nullable = false)
+    @Column(name = "certifie_premium", nullable = false,
+            columnDefinition = "boolean not null default false")
     @Builder.Default
     private Boolean certifiePremium = false;
 

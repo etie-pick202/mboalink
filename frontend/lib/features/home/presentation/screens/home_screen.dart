@@ -8,6 +8,7 @@ import "../../../../core/constants/app_routes.dart";
 import "../../../../core/theme/app_colors.dart";
 import "../../../../core/theme/app_typography.dart";
 import "../../../../core/widgets/app_error_view.dart";
+import "../../../../core/utils/category_icons.dart";
 import "../../../../core/widgets/app_loader.dart";
 import "../../../auth/presentation/providers/auth_providers.dart";
 import "../../domain/entities/grossiste_resume.dart";
@@ -185,7 +186,7 @@ class HomeScreen extends ConsumerWidget {
                               scrollDirection: Axis.horizontal,
                               itemCount: categories.length,
                               itemBuilder: (ctx, i) => _CategoryChip(
-                                icon: Symbols.category,
+                                icon: categoryIcon(categories[i]),
                                 label: categories[i],
                                 bg: AppColors.successBg,
                                 fg: AppColors.primary,
