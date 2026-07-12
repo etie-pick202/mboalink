@@ -49,6 +49,15 @@ public class CampayPaymentService {
     @Value("${campay.redirect.url}")
     private String campayRedirectUrl;
 
+    // Phase de test : l'environnement démo Campay rejette les montants élevés
+    // (max ~25 FCFA). On plafonne uniquement le montant transmis à Campay ;
+    // la transaction, le reçu et l'affichage conservent le vrai montant.
+    @Value("${campay.test.mode:false}")
+    private boolean campayTestMode;
+
+    @Value("${campay.test.max-amount:25}")
+    private int campayTestMaxAmount;
+
     /**
      * Initiate a mobile money collection request via Campay
      */
@@ -282,7 +291,14 @@ public class CampayPaymentService {
      */
     private Map<String, Object> buildCollectRequest(Transaction transaction, MobileMoneyRequestDTO request) {
         Map<String, Object> body = new LinkedHashMap<>();
-        body.put("amount", request.getMontant().intValue());
+
+        int amount = request.getMontant().intValue();
+        if (campayTestMode && amount > campayTestMaxAmount) {
+            log.warn("[CAMPAY] Mode test : montant {} plafonné à {} FCFA pour transaction {}",
+                    amount, campayTestMaxAmount, transaction.getId());
+            amount = campayTestMaxAmount;
+        }
+        body.put("amount", amount);
         body.put("currency", request.getDevise() != null ? request.getDevise() : "XAF");
         body.put("from", formatPhoneNumber(request.getNumeroTelephonePaiement()));
         body.put("description", request.getDescription());

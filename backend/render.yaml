@@ -39,3 +39,7 @@ services:
         value: "*"
       - key: PORT
         value: 8080
+      # Phase de test : plafonne à 25 FCFA les montants envoyés à Campay
+      # (la démo Campay rejette les gros montants). Passer à "false" en prod.
+      - key: CAMPAY_TEST_MODE
+        value: "true"
