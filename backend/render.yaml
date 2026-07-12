@@ -10,7 +10,7 @@ services:
     dockerContext: ./backend
     plan: free
     region: frankfurt
-    branch: main
+    branch: develop
     healthCheckPath: /actuator/health
     envVars:
       - key: DATABASE_URL
