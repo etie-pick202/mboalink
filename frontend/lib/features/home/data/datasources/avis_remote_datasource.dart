@@ -32,8 +32,7 @@ class AvisRemoteDatasource {
       if (commentaire != null && commentaire.isNotEmpty)
         "commentaire": commentaire,
       "transactionVerifiee": referenceTransaction != null,
-      if (referenceTransaction != null)
-        "referenceTransaction": referenceTransaction,
+      "referenceTransaction": ?referenceTransaction,
     });
     if (json["success"] != true) {
       throw AppException(

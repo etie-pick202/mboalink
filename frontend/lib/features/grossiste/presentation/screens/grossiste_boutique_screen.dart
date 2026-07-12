@@ -474,7 +474,7 @@ class _ProduitDialogState extends ConsumerState<_ProduitDialog> {
           "quantiteMinimale": double.tryParse(_quantiteMin.text.trim()),
         "uniteMesure": _unite.text.trim(),
         "estDisponible": true,
-        if (imageUrl != null) "imageUrl": imageUrl,
+        "imageUrl": ?imageUrl,
       };
 
       if (_isEdit) {

@@ -50,7 +50,7 @@ class PaymentRemoteDatasource {
       "operateur": operateur,
       "numeroTelephonePaiement": numeroTelephone,
       "description": description,
-      if (ficheGrossisteId != null) "ficheGrossisteId": ficheGrossisteId,
+      "ficheGrossisteId": ?ficheGrossisteId,
     });
     if (json["success"] != true) {
       throw AppException(

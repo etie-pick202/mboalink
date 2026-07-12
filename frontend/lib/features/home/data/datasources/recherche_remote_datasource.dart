@@ -33,8 +33,8 @@ class RechercheRemoteDatasource {
     int taille = 10,
   }) async {
     final json = await _get("/search/fil-actualite", {
-      if (latitude != null) "latitudeUtilisateur": latitude,
-      if (longitude != null) "longitudeUtilisateur": longitude,
+      "latitudeUtilisateur": ?latitude,
+      "longitudeUtilisateur": ?longitude,
       "page": page,
       "taille": taille,
     });
@@ -55,12 +55,12 @@ class RechercheRemoteDatasource {
   }) async {
     final json = await _get("/search/grossistes", {
       if (motCle != null && motCle.isNotEmpty) "motCle": motCle,
-      if (ville != null) "ville": ville,
-      if (categorie != null) "categorie": categorie,
-      if (prixMin != null) "prixMin": prixMin,
-      if (prixMax != null) "prixMax": prixMax,
-      if (certifie != null) "certifie": certifie,
-      if (certifiePremium != null) "certifiePremium": certifiePremium,
+      "ville": ?ville,
+      "categorie": ?categorie,
+      "prixMin": ?prixMin,
+      "prixMax": ?prixMax,
+      "certifie": ?certifie,
+      "certifiePremium": ?certifiePremium,
       "tri": tri,
       "page": page,
       "taille": taille,

@@ -18,12 +18,12 @@ class AdminRemoteDatasource {
 
   Future<void> approuverDocument(String documentId, {String? commentaire}) =>
       _patch("/admin/validations/documents/$documentId/approuver", {
-        if (commentaire != null) "commentaireAdmin": commentaire,
+        "commentaireAdmin": ?commentaire,
       });
 
   Future<void> rejeterDocument(String documentId, {String? commentaire}) =>
       _patch("/admin/validations/documents/$documentId/rejeter", {
-        if (commentaire != null) "commentaireAdmin": commentaire,
+        "commentaireAdmin": ?commentaire,
       });
 
   Future<void> validerFiche(String ficheId) =>
