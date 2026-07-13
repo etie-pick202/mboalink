@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -23,6 +24,13 @@ public class ProduitGrossisteController {
     private final ProduitGrossisteService produitService;
     private final SupabaseStorageService supabaseService;
     private final FicheGrossisteRepository ficheRepository;
+
+    @GetMapping("/{ficheId}/produits")
+    public ResponseEntity<List<ProduitResponse>> listerProduits(
+            @PathVariable UUID ficheId) {
+        return ResponseEntity.ok(
+                produitService.listerProduits(CurrentUser.getId(), ficheId));
+    }
 
     @PostMapping("/{ficheId}/produits")
     public ResponseEntity<ProduitResponse> ajouterProduit(

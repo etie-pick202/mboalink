@@ -12,6 +12,7 @@ import java.util.UUID;
 public class ProduitResponse {
 
     private UUID id;
+    private UUID ficheGrossisteId;
     private String nom;
     private String description;
     private String categorie;
@@ -24,6 +25,7 @@ public class ProduitResponse {
     public static ProduitResponse depuis(ProduitGrossiste p) {
         return ProduitResponse.builder()
                 .id(p.getId())
+                .ficheGrossisteId(p.getFicheGrossiste() != null ? p.getFicheGrossiste().getId() : null)
                 .nom(p.getNom())
                 .description(p.getDescription())
                 .categorie(p.getCategorie())

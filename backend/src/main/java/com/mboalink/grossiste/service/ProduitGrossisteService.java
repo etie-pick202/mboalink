@@ -12,6 +12,7 @@ import com.mboalink.notification.service.NotificationService;
 import com.mboalink.search.repository.FavoriRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -24,6 +25,21 @@ public class ProduitGrossisteService {
     private final FicheGrossisteRepository ficheRepository;
     private final FavoriRepository favoriRepository;
     private final NotificationService notificationService;
+
+    // Liste les produits d'une fiche pour son propriétaire (écran "Ma boutique").
+    @Transactional(readOnly = true)
+    public java.util.List<ProduitResponse> listerProduits(UUID utilisateurId, UUID ficheId) {
+        FicheGrossiste fiche = ficheRepository.findById(ficheId)
+                .orElseThrow(() -> new RessourceIntrouvableException("Fiche introuvable."));
+
+        if (!fiche.getUtilisateur().getId().equals(utilisateurId)) {
+            throw new AccesRefuseException("Vous ne pouvez consulter que les produits de votre propre fiche.");
+        }
+
+        return produitRepository.findByFicheGrossisteId(ficheId).stream()
+                .map(ProduitResponse::depuis)
+                .toList();
+    }
 
     public ProduitResponse ajouterProduit(UUID utilisateurId, UUID ficheId, CreerProduitRequest req) {
 
